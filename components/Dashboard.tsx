@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Users, CalendarCheck, TrendingUp, Sparkles, Loader2 } from 'lucide-react';
@@ -54,18 +55,18 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
           <div className="p-3 bg-blue-50 rounded-xl">
-            <Users className="w-8 h-8 text-blue-600" />
+            <Users className="w-8 h-8 text-blue-900" />
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Total Members</p>
             <p className="text-2xl font-bold text-slate-900">{totalMembers}</p>
-            <p className="text-xs text-green-600 font-medium">{activeMembers} Active</p>
+            <p className="text-xs text-blue-600 font-medium">{activeMembers} Active</p>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 rounded-xl">
-            <CalendarCheck className="w-8 h-8 text-indigo-600" />
+          <div className="p-3 bg-red-50 rounded-xl">
+            <CalendarCheck className="w-8 h-8 text-red-600" />
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Events Hosted</p>
@@ -75,8 +76,8 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 rounded-xl">
-            <TrendingUp className="w-8 h-8 text-emerald-600" />
+          <div className="p-3 bg-yellow-50 rounded-xl">
+            <TrendingUp className="w-8 h-8 text-yellow-600" />
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Avg. Attendance</p>
@@ -91,7 +92,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* AI Insight Section */}
-      <div className="bg-gradient-to-r from-violet-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-6 text-white shadow-lg shadow-blue-900/20">
         <div className="flex items-start justify-between">
           <div className="flex gap-4">
             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -125,8 +126,8 @@ const Dashboard: React.FC = () => {
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorAttendees" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#1e3a8a" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#1e3a8a" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -148,7 +149,7 @@ const Dashboard: React.FC = () => {
               <Area 
                 type="monotone" 
                 dataKey="attendees" 
-                stroke="#4f46e5" 
+                stroke="#1e3a8a" 
                 strokeWidth={3}
                 fillOpacity={1} 
                 fill="url(#colorAttendees)" 
@@ -174,7 +175,7 @@ const Dashboard: React.FC = () => {
                 tick={{fill: '#64748b', fontSize: 12}} 
               />
               <Tooltip cursor={{fill: '#f1f5f9'}} />
-              <Bar dataKey="attendees" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="attendees" fill="#dc2626" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

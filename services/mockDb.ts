@@ -1,70 +1,65 @@
 
-import { MOCK_MEMBERS, MOCK_EVENTS, MOCK_ATTENDANCE, MOCK_USERS } from '../constants';
-import { Member, Event, AttendanceRecord, User } from '../types';
+import { Member, Event, AttendanceRecord, User, AppSettings } from '../types';
 
-// Simple in-memory storage for the session
-let members = [...MOCK_MEMBERS];
-let events = [...MOCK_EVENTS];
-let attendance = [...MOCK_ATTENDANCE];
-let users = [...MOCK_USERS];
+const API_URL = 'http://localhost:5000/api';
+
+const fetchJson = async (endpoint: string, options: RequestInit = {}) => {
+  try {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+    if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+    return res.json();
+  } catch (err) {
+    console.error(`Fetch error for ${endpoint}:`, err);
+    throw err;
+  }
+};
 
 export const db = {
   // --- Auth & Users ---
-  login: (username: string, password: string): Promise<User | null> => {
-    // In a real app, this calls the backend API
-    const user = users.find(u => u.username === username && u.password === password);
-    if (!user) return Promise.resolve(null);
-    
-    // Return user without password
-    const { password: _, ...safeUser } = user;
-    return Promise.resolve(safeUser);
+  login: async (username: string, password: string): Promise<User | null> => {
+    try {
+      const user = await fetchJson('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password })
+      });
+      return user;
+    } catch {
+      return null;
+    }
   },
 
-  updateUser: (id: string, updates: { name?: string; username?: string; password?: string }) => {
-    users = users.map(u => {
-      if (u.id === id) {
-        return { ...u, ...updates };
-      }
-      return u;
-    });
-    const updated = users.find(u => u.id === id);
-    if(updated) {
-        const { password: _, ...safeUser } = updated;
-        return Promise.resolve(safeUser);
+  updateUser: async (id: string, updates: { name?: string; username?: string; password?: string }) => {
+    return fetchJson(`/users/${id}`, { method: 'PUT', body: JSON.stringify(updates) });
+  },
+
+  // --- Settings ---
+  getSettings: async (): Promise<AppSettings> => {
+    try {
+        return await fetchJson('/settings');
+    } catch {
+        return { slogan: 'Puelay' };
     }
-    return Promise.resolve(null);
+  },
+  updateSettings: async (newSettings: Partial<AppSettings>) => {
+    return fetchJson('/settings', { method: 'PUT', body: JSON.stringify(newSettings) });
   },
 
   // --- Members ---
-  getMembers: () => Promise.resolve(members),
-  addMember: (member: Member) => {
-    members = [...members, member];
-    return Promise.resolve(member);
-  },
-  updateMember: (id: string, updates: Partial<Member>) => {
-    members = members.map(m => m.id === id ? { ...m, ...updates } : m);
-    return Promise.resolve();
-  },
-  deleteMember: (id: string) => {
-    members = members.filter(m => m.id !== id);
-    return Promise.resolve();
-  },
+  getMembers: () => fetchJson('/members'),
+  addMember: (member: Member) => fetchJson('/members', { method: 'POST', body: JSON.stringify(member) }),
+  updateMember: (id: string, updates: Partial<Member>) => fetchJson(`/members/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+  deleteMember: (id: string) => fetchJson(`/members/${id}`, { method: 'DELETE' }),
 
   // --- Events ---
-  getEvents: () => Promise.resolve(events),
-  addEvent: (event: Event) => {
-    events = [...events, event];
-    return Promise.resolve(event);
-  },
+  getEvents: () => fetchJson('/events'),
+  addEvent: (event: Event) => fetchJson('/events', { method: 'POST', body: JSON.stringify(event) }),
+  updateEvent: (id: string, updates: Partial<Event>) => fetchJson(`/events/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+  deleteEvent: (id: string) => fetchJson(`/events/${id}`, { method: 'DELETE' }),
 
   // --- Attendance ---
-  getAttendance: () => Promise.resolve(attendance),
-  markAttendance: (record: AttendanceRecord) => {
-    // Prevent duplicates
-    const exists = attendance.find(a => a.eventId === record.eventId && a.memberId === record.memberId);
-    if (!exists) {
-      attendance = [...attendance, record];
-    }
-    return Promise.resolve();
-  }
+  getAttendance: () => fetchJson('/attendance'),
+  markAttendance: (record: AttendanceRecord) => fetchJson('/attendance', { method: 'POST', body: JSON.stringify(record) }),
 };

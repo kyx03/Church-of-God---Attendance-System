@@ -22,6 +22,7 @@ export interface Event {
   id: string;
   name: string;
   date: string; // ISO date string
+  location?: string;
   type: 'service' | 'youth' | 'outreach' | 'meeting';
   status: 'upcoming' | 'completed' | 'cancelled';
 }
@@ -39,4 +40,8 @@ export interface AnalyticsSummary {
   averageAttendance: number;
   lastServiceAttendance: number;
   growthRate: number;
+}
+
+export interface AppSettings {
+  slogan: string;
 }
