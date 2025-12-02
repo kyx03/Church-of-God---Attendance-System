@@ -1,0 +1,8 @@
+{
+  "name": "Church of God - Attendance System",
+  "description": "A comprehensive church attendance monitoring system with QR code scanning, member management, and AI-powered analytics.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
