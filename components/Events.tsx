@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check, Edit2 } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event, Member, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,7 +12,8 @@ const Events: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
   
-  // New Event Form State
+  // Event Form State
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newEvent, setNewEvent] = useState<Partial<Event>>({ type: 'service' });
   const [isCustomType, setIsCustomType] = useState(false);
 
@@ -77,22 +78,48 @@ const Events: React.FC = () => {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingId(null);
+    setNewEvent({ type: 'service' });
+    setIsCustomType(false);
+    setShowForm(true);
+  };
+
+  const openEditModal = (event: Event) => {
+      setEditingId(event.id);
+      setNewEvent({ ...event });
+      setIsCustomType(!['service', 'youth', 'outreach', 'meeting'].includes(event.type));
+      setShowForm(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.name || !newEvent.date) return;
     
-    await db.addEvent({
-      id: `e${Date.now()}`,
-      name: newEvent.name,
-      date: newEvent.date,
-      location: newEvent.location || 'Main Sanctuary', // Default if empty
-      type: newEvent.type as any,
-      status: 'upcoming'
-    });
+    if (editingId) {
+        // Update existing event
+        await db.updateEvent(editingId, {
+            name: newEvent.name,
+            date: newEvent.date,
+            location: newEvent.location || 'Main Sanctuary',
+            type: newEvent.type as any,
+        });
+    } else {
+        // Create new event
+        await db.addEvent({
+            id: `e${Date.now()}`,
+            name: newEvent.name,
+            date: newEvent.date,
+            location: newEvent.location || 'Main Sanctuary', // Default if empty
+            type: newEvent.type as any,
+            status: 'upcoming'
+        });
+    }
     
     loadData();
     setShowForm(false);
     setNewEvent({ type: 'service' });
+    setEditingId(null);
     setIsCustomType(false);
   };
 
@@ -168,7 +195,8 @@ const Events: React.FC = () => {
 
       const eventsInRange = events.filter(e => {
           const d = new Date(e.date);
-          return d >= start && d <= end;
+          // Strict comparison
+          return d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
       });
 
       if (eventsInRange.length === 0) {
@@ -266,7 +294,7 @@ const Events: React.FC = () => {
                 Batch Absentee Check
               </button>
               <button 
-                onClick={() => setShowForm(!showForm)}
+                onClick={openAddModal}
                 className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors flex-1 md:flex-none justify-center"
               >
                 <Plus className="w-5 h-5" />
@@ -281,13 +309,13 @@ const Events: React.FC = () => {
           <div className="bg-blue-900 px-6 py-4 flex justify-between items-center text-white">
              <h3 className="font-bold flex items-center gap-2 text-lg">
                 <Calendar className="w-5 h-5" />
-                Schedule New Event
+                {editingId ? 'Edit Event' : 'Schedule New Event'}
              </h3>
              <button onClick={() => setShowForm(false)} className="text-blue-200 hover:text-white bg-blue-800 hover:bg-blue-700 p-1 rounded-full transition-colors">
                 <X className="w-5 h-5" />
              </button>
           </div>
-          <form onSubmit={handleCreate} className="p-8">
+          <form onSubmit={handleSubmit} className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                  
                  {/* Left Column */}
@@ -360,13 +388,19 @@ const Events: React.FC = () => {
                         <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                             Date & Time <span className="text-red-500">*</span>
                         </label>
-                        <input 
-                            required
-                            type="datetime-local" 
-                            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm"
-                            value={newEvent.date || ''}
-                            onChange={e => setNewEvent({...newEvent, date: e.target.value})}
-                        />
+                        <div className="relative group">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 pointer-events-none z-10">
+                               <Calendar className="w-5 h-5" />
+                            </div>
+                            <input 
+                                required
+                                type="datetime-local" 
+                                className="w-full pl-14 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-slate-900 shadow-sm relative z-0 font-medium"
+                                value={newEvent.date || ''}
+                                onChange={e => setNewEvent({...newEvent, date: e.target.value})}
+                                style={{ colorScheme: 'light' }}
+                            />
+                        </div>
                     </div>
 
                     <div className="space-y-2">
@@ -400,7 +434,7 @@ const Events: React.FC = () => {
                     className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors shadow-lg shadow-blue-900/20 flex items-center gap-2"
                 >
                     <CheckCircle2 className="w-5 h-5" />
-                    Create Event
+                    {editingId ? 'Save Changes' : 'Create Event'}
                 </button>
             </div>
           </form>
@@ -424,12 +458,14 @@ const Events: React.FC = () => {
               key={event.id} 
               className={`relative rounded-xl p-6 transition-all flex flex-col h-full border-l-4 group ${cardStyle}`}
             >
+              {/* Header with Icon and Controls - Using Flexbox to avoid overlap */}
               <div className="flex justify-between items-start mb-4">
                 <div className="p-2 rounded-lg bg-white/60 border border-slate-200 shadow-sm">
                   <Calendar className="w-6 h-6 text-slate-700" />
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                    {/* Status Dropdown for Admins - Click based */}
+                
+                <div className="flex items-center gap-2">
+                    {/* Status Dropdown */}
                     {canEdit ? (
                         <div className="relative status-dropdown-container">
                             <button 
@@ -462,14 +498,24 @@ const Events: React.FC = () => {
                         </div>
                     )}
                     
+                    {/* Edit and Delete Buttons - Always Visible and Enhanced */}
                     {canEdit && (
+                      <div className="flex items-center gap-1">
+                         <button 
+                            onClick={() => openEditModal(event)} 
+                            className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-2 transition-colors rounded-lg"
+                            title="Edit Event"
+                        >
+                            <Edit2 className="w-4 h-4" />
+                        </button>
                         <button 
                             onClick={() => setDeleteEventTarget(event)} 
-                            className="text-slate-300 hover:text-red-500 p-1.5 transition-colors absolute top-4 right-14 opacity-0 group-hover:opacity-100"
+                            className="text-red-600 bg-red-50 hover:bg-red-100 p-2 transition-colors rounded-lg"
                             title="Delete Event"
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
+                      </div>
                     )}
                 </div>
               </div>

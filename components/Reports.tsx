@@ -129,24 +129,26 @@ const Reports: React.FC = () => {
           <p className="text-slate-500">Analytics and member insights.</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-             <div className="flex items-center gap-2 px-2">
-                <CalendarIcon className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-bold text-slate-500 uppercase">Range:</span>
-             </div>
-             <input 
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm w-full lg:w-auto">
+            <div className="flex items-center gap-2 px-2 border-r border-slate-100">
+                <CalendarIcon className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-slate-500 uppercase">Range</span>
+            </div>
+            <input 
                 type="date" 
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="border-slate-200 rounded-lg text-sm px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-             />
-             <span className="text-slate-300 self-center hidden sm:inline">—</span>
-             <input 
+                className="text-sm outline-none bg-transparent text-slate-700 font-medium cursor-pointer flex-1"
+                style={{ colorScheme: 'light' }}
+            />
+            <span className="text-slate-300">–</span>
+            <input 
                 type="date" 
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="border-slate-200 rounded-lg text-sm px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-             />
+                className="text-sm outline-none bg-transparent text-slate-700 font-medium cursor-pointer flex-1"
+                style={{ colorScheme: 'light' }}
+            />
         </div>
 
         <div className="flex gap-2 w-full lg:w-auto">

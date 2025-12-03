@@ -163,11 +163,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
         <div className="md:hidden bg-blue-900 text-white p-4 flex items-center justify-between shadow-md z-20">
-            <div className="flex items-center gap-3">
-                 <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white rounded-md p-0.5" />
-                 <span className="font-bold">Puelay</span>
+            <div className="flex items-center gap-3 min-w-0">
+                 <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white rounded-md p-0.5 flex-shrink-0" />
+                 <div className="min-w-0 flex items-center gap-2">
+                    <span className="font-bold truncate text-sm sm:text-base">Church of God <span className="text-blue-200 font-normal">{slogan}</span></span>
+                     {user.role === 'admin' && (
+                      <button onClick={openSloganEdit} className="p-1 hover:bg-blue-800 rounded-full transition-colors flex-shrink-0">
+                        <Edit2 className="w-3 h-3 text-blue-200" />
+                      </button>
+                    )}
+                 </div>
             </div>
-            <button onClick={() => setMobileMenuOpen(true)}>
+            <button onClick={() => setMobileMenuOpen(true)} className="flex-shrink-0 ml-2">
                 <Menu className="w-6 h-6" />
             </button>
         </div>
@@ -182,12 +189,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
             <button onClick={() => setShowSloganModal(false)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5"/></button>
-            <h3 className="text-lg font-bold mb-4">Edit Ministry Slogan</h3>
+            <h3 className="text-lg font-bold mb-4 text-slate-900">Edit</h3>
             <form onSubmit={handleUpdateSlogan}>
               <input 
                 value={tempSlogan}
                 onChange={e => setTempSlogan(e.target.value)}
-                className="w-full border p-2 rounded mb-4"
+                className="w-full border border-slate-300 p-2 rounded mb-4 bg-white text-slate-900 focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter new slogan"
               />
               <button type="submit" className="w-full bg-blue-900 text-white py-2 rounded font-bold">Save</button>

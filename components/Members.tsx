@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, FileUp } from 'lucide-react';
+import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, FileUp, Edit2 } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Member, Event, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +22,10 @@ const Members: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   
+  // Edit State
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newMember, setNewMember] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canEdit = user?.role === 'admin' || user?.role === 'secretary';
@@ -43,13 +46,13 @@ const Members: React.FC = () => {
   };
 
   const filteredMembers = members.filter(m => {
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
     // 1. Search Text (Name OR Email)
     const matchesSearch = 
         `${m.firstName} ${m.lastName}`.toLowerCase().includes(term) ||
         m.email.toLowerCase().includes(term);
     
-    // 2. Status Filter
+    // 2. Status Filter - strict check
     const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
 
     // 3. Attendance Filter
@@ -89,18 +92,52 @@ const Members: React.FC = () => {
     return matchesSearch && matchesStatus && matchesAttendance;
   });
 
-  const handleAddMember = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingId(null);
+    setNewMember({ firstName: '', lastName: '', email: '', phone: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (member: Member) => {
+    setEditingId(member.id);
+    setNewMember({ 
+        firstName: member.firstName, 
+        lastName: member.lastName, 
+        email: member.email, 
+        phone: member.phone 
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleAddOrUpdateMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    const member: Member = {
-      id: `m${Date.now()}`,
-      ...newMember,
-      joinDate: new Date().toISOString().split('T')[0],
-      status: 'active'
-    };
-    await db.addMember(member);
+    
+    if (editingId) {
+        // Update
+        await db.updateMember(editingId, {
+            firstName: newMember.firstName,
+            lastName: newMember.lastName,
+            email: newMember.email,
+            phone: newMember.phone
+        });
+        setStatusMsg("Member updated successfully.");
+    } else {
+        // Create
+        const member: Member = {
+            id: `m${Date.now()}`,
+            ...newMember,
+            joinDate: new Date().toISOString().split('T')[0],
+            status: 'active'
+        };
+        await db.addMember(member);
+        setStatusMsg("Member added successfully.");
+    }
+    
     loadData();
     setIsModalOpen(false);
     setNewMember({ firstName: '', lastName: '', email: '', phone: '' });
+    setEditingId(null);
+    setTimeout(() => setStatusMsg(null), 3000);
   };
 
   const handleStatusToggle = async (member: Member) => {
@@ -280,7 +317,7 @@ const Members: React.FC = () => {
               Import CSV
             </button>
             <button 
-              onClick={() => setIsModalOpen(true)}
+              onClick={openAddModal}
               className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
             >
               <Plus className="w-5 h-5" />
@@ -403,13 +440,22 @@ const Members: React.FC = () => {
                             QR
                         </button>
                         {canEdit && (
-                            <button
-                                onClick={() => setDeleteMemberTarget(member)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Delete Member"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => openEditModal(member)}
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Edit Member"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setDeleteMemberTarget(member)}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Delete Member"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </>
                         )}
                     </div>
                   </td>
@@ -539,15 +585,15 @@ const Members: React.FC = () => {
         </div>
       )}
 
-      {/* Add Member Modal */}
+      {/* Add/Edit Member Modal */}
       {isModalOpen && canEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900">Add New Member</h3>
+              <h3 className="text-xl font-bold text-slate-900">{editingId ? 'Edit Member' : 'Add New Member'}</h3>
               <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6 text-slate-400" /></button>
             </div>
-            <form onSubmit={handleAddMember} className="space-y-4">
+            <form onSubmit={handleAddOrUpdateMember} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
@@ -586,7 +632,9 @@ const Members: React.FC = () => {
                     onChange={e => setNewMember({...newMember, phone: e.target.value})} 
                 />
               </div>
-              <button type="submit" className="w-full py-3 bg-blue-900 text-white rounded-lg font-bold hover:bg-blue-800 mt-4">Create Member</button>
+              <button type="submit" className="w-full py-3 bg-blue-900 text-white rounded-lg font-bold hover:bg-blue-800 mt-4">
+                  {editingId ? 'Save Changes' : 'Create Member'}
+              </button>
             </form>
           </div>
         </div>
