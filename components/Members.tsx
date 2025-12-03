@@ -257,13 +257,24 @@ const Members: React.FC = () => {
 
       if (!confirm(`Are you sure you want to set ${ids.length} members to ${newStatus}?`)) return;
 
-      setMembers(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: newStatus } : m));
-      setSelectedIds(new Set()); 
-      setStatusMsg(`Updated ${ids.length} members to ${newStatus}.`);
+      try {
+        // Optimistic Update
+        setMembers(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: newStatus } : m));
+        setSelectedIds(new Set()); // Clear selection
+        setStatusMsg(`Updated ${ids.length} members to ${newStatus}.`);
+        
+        // Parallel backend updates
+        await Promise.all(ids.map(id => db.updateMember(id, { status: newStatus })));
+        
+        // Reload to ensure consistency
+        await loadData();
+      } catch (err: any) {
+        console.error("Bulk update failed", err);
+        setStatusMsg("Failed to update some members.");
+        loadData(); // Revert on error
+      }
+      
       setTimeout(() => setStatusMsg(null), 3000);
-
-      await Promise.all(ids.map(id => db.updateMember(id, { status: newStatus })));
-      loadData();
   };
 
   const handleDelete = async () => {
@@ -283,7 +294,10 @@ const Members: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const text = event.target?.result as string;
+      const result = event.target?.result;
+      if (typeof result !== 'string') return;
+      const text = result;
+
       if (!text) return;
 
       const lines = text.split('\n');
