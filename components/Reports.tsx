@@ -3,13 +3,19 @@ import React, { useEffect, useState } from 'react';
 import { db } from '../services/mockDb';
 import { Member, Event, AttendanceRecord } from '../types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Download, Users, Calendar as CalendarIcon, FileSpreadsheet, QrCode, Award } from 'lucide-react';
+import { Download, Users, Calendar as CalendarIcon, FileSpreadsheet, QrCode, Award, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const ITEMS_PER_PAGE = 5;
 
 const Reports: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Pagination States
+  const [memberPage, setMemberPage] = useState(1);
+  const [attendeePage, setAttendeePage] = useState(1);
 
   // Date Filter State (Default to current year)
   const today = new Date();
@@ -75,23 +81,30 @@ const Reports: React.FC = () => {
       { name: 'Manual', value: filteredAttendance.filter(a => a.method === 'manual').length, color: '#f59e0b' }
   ].filter(d => d.value > 0);
 
-  // 6. Top Attendees (Bar)
+  // 6. Top Attendees (Bar) - With Pagination Logic
   const attendanceCounts: Record<string, number> = {};
   filteredAttendance.forEach(a => {
     attendanceCounts[a.memberId] = (attendanceCounts[a.memberId] || 0) + 1;
   });
-  const topAttendeesData = Object.entries(attendanceCounts)
+  
+  const allAttendeesData = Object.entries(attendanceCounts)
     .map(([memberId, count]) => {
         const member = members.find(m => m.id === memberId);
         return {
-        name: member ? `${member.firstName} ${member.lastName}` : 'Unknown',
-        count
+          name: member ? `${member.firstName} ${member.lastName}` : 'Unknown',
+          count
         };
     })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5); // Top 5
+    .sort((a, b) => b.count - a.count);
 
-  // 7. Member List with Last Attended Date
+  const totalAttendeePages = Math.ceil(allAttendeesData.length / ITEMS_PER_PAGE);
+  const paginatedAttendeesData = allAttendeesData.slice(
+      (attendeePage - 1) * ITEMS_PER_PAGE,
+      attendeePage * ITEMS_PER_PAGE
+  );
+
+
+  // 7. Member List with Last Attended Date - With Pagination Logic
   const processedMembers = members.map(m => {
     const memberAttendance = attendance.filter(a => a.memberId === m.id);
     let lastAttendedDate: string | null = null;
@@ -110,6 +123,12 @@ const Reports: React.FC = () => {
     }
     return { ...m, lastAttended: lastAttendedDate, lastAttendedTs };
   }).sort((a, b) => b.lastAttendedTs - a.lastAttendedTs);
+
+  const totalMemberPages = Math.ceil(processedMembers.length / ITEMS_PER_PAGE);
+  const paginatedMembers = processedMembers.slice(
+      (memberPage - 1) * ITEMS_PER_PAGE,
+      memberPage * ITEMS_PER_PAGE
+  );
 
 
   const handlePrint = () => {
@@ -344,15 +363,36 @@ const Reports: React.FC = () => {
             </div>
 
             {/* Top Attendees */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex-1">
-                 <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                     <Award className="w-5 h-5 text-amber-500" />
-                     Top Attendees
-                 </h3>
-                 <div className="h-40">
-                     {topAttendeesData.length > 0 ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex-1 flex flex-col">
+                 <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                        <Award className="w-5 h-5 text-amber-500" />
+                        Top Attendees
+                    </h3>
+                    <div className="flex gap-1">
+                        <button 
+                            onClick={() => setAttendeePage(p => Math.max(1, p - 1))}
+                            disabled={attendeePage === 1}
+                            className="p-1 rounded hover:bg-slate-100 disabled:opacity-50"
+                        >
+                            <ChevronLeft className="w-4 h-4 text-slate-500" />
+                        </button>
+                        <span className="text-xs text-slate-500 font-medium pt-1">
+                            {attendeePage}/{totalAttendeePages || 1}
+                        </span>
+                        <button 
+                            onClick={() => setAttendeePage(p => Math.min(totalAttendeePages, p + 1))}
+                            disabled={attendeePage === totalAttendeePages || totalAttendeePages === 0}
+                            className="p-1 rounded hover:bg-slate-100 disabled:opacity-50"
+                        >
+                            <ChevronRight className="w-4 h-4 text-slate-500" />
+                        </button>
+                    </div>
+                 </div>
+                 <div className="h-40 flex-1">
+                     {paginatedAttendeesData.length > 0 ? (
                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={topAttendeesData} layout="vertical" margin={{top: 0, right: 30, left: 30, bottom: 0}}>
+                            <BarChart data={paginatedAttendeesData} layout="vertical" margin={{top: 0, right: 30, left: 30, bottom: 0}}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 11, fill: '#475569'}} axisLine={false} tickLine={false} />
@@ -384,7 +424,7 @@ const Reports: React.FC = () => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                    {processedMembers.map(m => (
+                    {paginatedMembers.map(m => (
                         <tr key={m.id} className="hover:bg-slate-50">
                             <td className="px-6 py-3 font-medium text-slate-900">{m.firstName} {m.lastName}</td>
                             <td className="px-6 py-3">
@@ -408,6 +448,48 @@ const Reports: React.FC = () => {
                 </tbody>
             </table>
         </div>
+        
+        {/* Pagination Footer */}
+        {processedMembers.length > 0 && (
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                    Showing {Math.min((memberPage - 1) * ITEMS_PER_PAGE + 1, processedMembers.length)} to {Math.min(memberPage * ITEMS_PER_PAGE, processedMembers.length)} of {processedMembers.length} members
+                </span>
+                <div className="flex gap-1">
+                    <button 
+                        onClick={() => setMemberPage(p => Math.max(1, p - 1))}
+                        disabled={memberPage === 1}
+                        className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {Array.from({ length: Math.min(5, totalMemberPages) }, (_, i) => {
+                         let p = i + 1;
+                         if (totalMemberPages > 5 && memberPage > 3) {
+                             p = memberPage - 2 + i;
+                             if (p > totalMemberPages) p = totalMemberPages - (4 - i);
+                         }
+                         
+                         return (
+                            <button
+                                key={p}
+                                onClick={() => setMemberPage(p)}
+                                className={`w-7 h-7 rounded text-xs font-medium ${memberPage === p ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
+                            >
+                                {p}
+                            </button>
+                         );
+                    })}
+                    <button 
+                        onClick={() => setMemberPage(p => Math.min(totalMemberPages, p + 1))}
+                        disabled={memberPage === totalMemberPages}
+                        className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+                    >
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );

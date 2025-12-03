@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event } from '../types';
 
@@ -15,6 +15,7 @@ const Kiosk: React.FC = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [showTimeWarning, setShowTimeWarning] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -55,8 +56,18 @@ const Kiosk: React.FC = () => {
       }
   }, [step, activeEvent]);
 
-  const totalPages = Math.ceil(events.length / ITEMS_PER_PAGE);
-  const paginatedEvents = events.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  // Reset pagination on search
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const filteredEvents = events.filter(e => 
+      e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      e.type.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE);
+  const paginatedEvents = filteredEvents.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const selectEvent = async (event: Event) => {
       // Mark event as in-progress automatically
@@ -179,31 +190,46 @@ const Kiosk: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center">
         <div className="max-w-4xl w-full">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Kiosk Setup</h2>
-            <p className="text-slate-500 mb-8">Select an event to start attendance tracking.</p>
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-900 mb-1">Kiosk Setup</h2>
+                    <p className="text-slate-500">Select an event to start attendance tracking.</p>
+                </div>
+                <div className="relative w-full md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Search events..." 
+                        className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.length === 0 ? (
+                {paginatedEvents.length === 0 ? (
                     <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
                         <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                         <p className="text-slate-500 font-medium">No upcoming events found.</p>
-                        <p className="text-sm text-slate-400">Please schedule an event first.</p>
+                        {searchTerm && <p className="text-sm text-slate-400 mt-1">Try adjusting your search.</p>}
+                        {!searchTerm && <p className="text-sm text-slate-400">Please schedule an event first.</p>}
                     </div>
                 ) : paginatedEvents.map(event => (
                     <button 
                         key={event.id}
                         onClick={() => selectEvent(event)}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all text-left group relative overflow-hidden"
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all text-left group relative overflow-hidden h-full flex flex-col justify-between"
                     >
                         <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-1 truncate">{event.name}</h3>
-                        <p className="text-sm text-slate-500 mb-4 flex items-center gap-2">
-                             <Calendar className="w-4 h-4" />
-                             {new Date(event.date).toLocaleDateString()}
-                             <span className="text-slate-300">|</span>
-                             {new Date(event.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </p>
-                        <div className="flex items-center justify-between mt-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-900 mb-1 line-clamp-2">{event.name}</h3>
+                            <p className="text-sm text-slate-500 mb-4 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 shrink-0" />
+                                <span>{new Date(event.date).toLocaleDateString()}</span>
+                            </p>
+                        </div>
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
                             <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${event.status === 'in-progress' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
                                 {event.status === 'in-progress' ? 'Resuming' : 'Start'}
                             </span>
@@ -214,7 +240,7 @@ const Kiosk: React.FC = () => {
             </div>
 
             {/* Pagination */}
-            {events.length > ITEMS_PER_PAGE && (
+            {filteredEvents.length > ITEMS_PER_PAGE && (
               <div className="flex justify-center items-center mt-8 gap-4">
                   <button 
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}

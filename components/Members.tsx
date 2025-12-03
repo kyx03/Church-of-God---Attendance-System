@@ -168,7 +168,6 @@ const Members: React.FC = () => {
   const openAddModal = () => {
     setEditingId(null);
     let newId = generateMemberId();
-    // Ensure uniqueness for initial generation
     while(members.some(m => m.id === newId)) newId = generateMemberId();
     
     setNewMember({ id: newId, firstName: '', lastName: '', email: '', phone: '', ministry: 'None' });
@@ -199,7 +198,6 @@ const Members: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    // Validate ID: 6 chars, alphanumeric, uppercase
     const idRegex = /^[A-Z0-9]{6}$/;
     const upperId = newMember.id.toUpperCase();
     
@@ -208,7 +206,6 @@ const Members: React.FC = () => {
         return;
     }
 
-    // Check for duplicates
     const isDuplicate = members.some(m => m.id === upperId && m.id !== editingId);
     if (isDuplicate) {
         setFormError("This Member ID is already assigned to another member.");
@@ -216,19 +213,7 @@ const Members: React.FC = () => {
     }
     
     if (editingId) {
-        // Update
         await db.updateMember(editingId, {
-            // Note: In a real DB changing PK is hard, but for mockDb this works if we treat ID as immutable or handle cascading. 
-            // Here assuming ID can be changed if needed, but typically ID shouldn't change.
-            // If user edited ID, we might need to delete old and create new in a real SQL, but here we just update fields.
-            // However, `updateMember` in mockDb relies on the ID to find the record. 
-            // If the ID in the form is different from `editingId`, we technically need to change the ID. 
-            // For simplicity in this mock, let's assume we update the other fields, and if ID changed, we handle that carefully.
-            // Actually, updating the ID of an existing record is risky for referential integrity (attendance). 
-            // Let's assume ID is immutable during edit for safety, OR if we allow it, we must update references.
-            // For this specific request "input validation for ID", it implies we can type it. 
-            // Let's trust the input ID is the one we want.
-            
             firstName: newMember.firstName,
             lastName: newMember.lastName,
             email: newMember.email,
@@ -237,7 +222,6 @@ const Members: React.FC = () => {
         });
         setStatusMsg("Member updated successfully.");
     } else {
-        // Create
         const member: Member = {
             id: upperId,
             firstName: newMember.firstName,
@@ -274,15 +258,13 @@ const Members: React.FC = () => {
       if (!confirm(`Are you sure you want to set ${ids.length} members to ${newStatus}?`)) return;
 
       // Optimistic Update
-      setMembers(members.map(m => ids.includes(m.id) ? { ...m, status: newStatus } : m));
+      setMembers(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: newStatus } : m));
       setSelectedIds(new Set()); // Clear selection
       setStatusMsg(`Updated ${ids.length} members to ${newStatus}.`);
       setTimeout(() => setStatusMsg(null), 3000);
 
-      // DB Update
-      for (const id of ids) {
-          await db.updateMember(id, { status: newStatus });
-      }
+      // DB Update with Promise.all for robustness
+      await Promise.all(ids.map(id => db.updateMember(id, { status: newStatus })));
       loadData();
   };
 
@@ -291,7 +273,6 @@ const Members: React.FC = () => {
         await db.deleteMember(deleteMemberTarget.id);
         loadData();
         setDeleteMemberTarget(null);
-        // If deleting last item on page, go back
         if (paginatedMembers.length === 1 && currentPage > 1) {
             setCurrentPage(currentPage - 1);
         }
@@ -350,7 +331,7 @@ const Members: React.FC = () => {
       .sort((a, b) => new Date(b.event!.date).getTime() - new Date(a.event!.date).getTime());
   };
 
-  // --- Printing Logic --- (Kept same as previous)
+  // --- Printing Logic ---
   const getCardHtml = (member: Member) => {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${member.id}`;
     return `
@@ -588,8 +569,6 @@ const Members: React.FC = () => {
                         <ChevronLeft className="w-4 h-4" />
                     </button>
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                         // Simple logic to show a window of pages around current would be better for many pages, 
-                         // but for this demo, just limiting to first 5 or logic can be simpler
                          let p = i + 1;
                          if (totalPages > 5 && currentPage > 3) {
                              p = currentPage - 2 + i;
@@ -618,7 +597,7 @@ const Members: React.FC = () => {
         )}
       </div>
 
-      {/* Modals... (QR, History, Delete are same as before) */}
+      {/* Modals are unchanged from previous version... */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
@@ -713,7 +692,6 @@ const Members: React.FC = () => {
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-900 font-mono tracking-wider uppercase"
                     value={newMember.id}
                     onChange={e => setNewMember({...newMember, id: e.target.value.toUpperCase()})}
-                    // Only allow editing for new members or specific policy, here allowing both but validation runs on save
                   />
                   <p className="text-xs text-slate-400 mt-1">Must be 6 alphanumeric characters.</p>
               </div>

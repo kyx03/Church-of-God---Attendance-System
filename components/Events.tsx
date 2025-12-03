@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check, Edit2, PlayCircle, ChevronLeft } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check, Edit2, PlayCircle, ChevronLeft, Search } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event, Member, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,6 +22,7 @@ const Events: React.FC = () => {
   // UI State
   const [activeStatusId, setActiveStatusId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Modal States
   const [checkInQrEvent, setCheckInQrEvent] = useState<Event | null>(null);
@@ -39,6 +40,8 @@ const Events: React.FC = () => {
     endDate: string;
     message: string;
     absenteeCount: number;
+    filterName: string;
+    filterType: string;
   }>({
     isOpen: false,
     step: 'method',
@@ -48,7 +51,9 @@ const Events: React.FC = () => {
     startDate: '',
     endDate: '',
     message: '',
-    absenteeCount: 0
+    absenteeCount: 0,
+    filterName: '',
+    filterType: 'all'
   });
 
   const canEdit = user?.role === 'admin' || user?.role === 'secretary';
@@ -65,6 +70,11 @@ const Events: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Reset pagination on search
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const loadData = async () => {
     try {
         const [e, m, a] = await Promise.all([
@@ -80,7 +90,12 @@ const Events: React.FC = () => {
     }
   };
 
-  const sortedEvents = [...events].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filteredEvents = events.filter(e => 
+      e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      e.type.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const sortedEvents = [...filteredEvents].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const totalPages = Math.ceil(sortedEvents.length / ITEMS_PER_PAGE);
   const paginatedEvents = sortedEvents.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
@@ -172,7 +187,9 @@ const Events: React.FC = () => {
       startDate: '',
       endDate: '',
       message: '',
-      absenteeCount: absentMembers.length
+      absenteeCount: absentMembers.length,
+      filterName: '',
+      filterType: 'all'
     });
   };
 
@@ -186,7 +203,9 @@ const Events: React.FC = () => {
           startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
           endDate: new Date().toISOString().split('T')[0],
           message: '',
-          absenteeCount: 0
+          absenteeCount: 0,
+          filterName: '',
+          filterType: 'all'
       });
   };
 
@@ -197,11 +216,21 @@ const Events: React.FC = () => {
 
       const eventsInRange = events.filter(e => {
           const d = new Date(e.date);
-          return d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
+          const inDateRange = d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
+          
+          const matchesName = notifyState.filterName 
+            ? e.name.toLowerCase().includes(notifyState.filterName.toLowerCase()) 
+            : true;
+            
+          const matchesType = notifyState.filterType !== 'all' 
+            ? e.type === notifyState.filterType 
+            : true;
+
+          return inDateRange && matchesName && matchesType;
       });
 
       if (eventsInRange.length === 0) {
-          alert("No events found in this date range.");
+          alert("No events found matching these criteria.");
           return;
       }
       const rangeEventIds = eventsInRange.map(e => e.id);
@@ -281,24 +310,39 @@ const Events: React.FC = () => {
           <h2 className="text-3xl font-bold text-slate-900">Events Schedule</h2>
           <p className="text-slate-500">Manage church services and gatherings.</p>
         </div>
-        {canEdit && (
-          <div className="flex w-full md:w-auto gap-2">
-              <button 
-                onClick={openBatchNotifyModal}
-                className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center"
-              >
-                <MailWarning className="w-4 h-4" />
-                Batch Absentee Check
-              </button>
-              <button 
-                onClick={openAddModal}
-                className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors flex-1 md:flex-none justify-center"
-              >
-                <Plus className="w-5 h-5" />
-                Schedule Event
-              </button>
-          </div>
-        )}
+        
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+             {/* Search Bar */}
+             <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                    type="text" 
+                    placeholder="Search events..." 
+                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+             </div>
+
+            {canEdit && (
+                <div className="flex gap-2">
+                    <button 
+                        onClick={openBatchNotifyModal}
+                        className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center whitespace-nowrap"
+                    >
+                        <MailWarning className="w-4 h-4" />
+                        <span className="hidden lg:inline">Absentee Check</span>
+                    </button>
+                    <button 
+                        onClick={openAddModal}
+                        className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors flex-1 md:flex-none justify-center whitespace-nowrap"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Schedule Event
+                    </button>
+                </div>
+            )}
+        </div>
       </div>
 
       {showForm && canEdit && (
@@ -368,7 +412,8 @@ const Events: React.FC = () => {
             <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
                 <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 font-medium">No events scheduled.</p>
-                {canEdit && <p className="text-sm text-slate-400">Click "Schedule Event" to get started.</p>}
+                {searchTerm && <p className="text-sm text-slate-400 mt-1">Try adjusting your search.</p>}
+                {canEdit && !searchTerm && <p className="text-sm text-slate-400">Click "Schedule Event" to get started.</p>}
             </div>
         ) : paginatedEvents.map(event => {
           const isPast = new Date(event.date) < new Date();
@@ -565,25 +610,91 @@ const Events: React.FC = () => {
             <div className="p-6">
               {notifyState.step === 'range' && (
                   <div className="space-y-4">
-                      <p className="text-slate-600 text-sm">Select a date range to identify members who have <strong>not attended any events</strong> during this period.</p>
+                      <p className="text-slate-600 text-sm">Select criteria to identify members who have <strong>not attended any matching events</strong>.</p>
                       <div className="grid grid-cols-2 gap-4">
-                          <div><label className="text-xs font-bold text-slate-500 uppercase">Start Date</label><input type="date" className="w-full mt-1 p-2 border rounded-lg text-sm bg-white text-slate-900" value={notifyState.startDate} onChange={e => setNotifyState(prev => ({ ...prev, startDate: e.target.value }))} /></div>
-                          <div><label className="text-xs font-bold text-slate-500 uppercase">End Date</label><input type="date" className="w-full mt-1 p-2 border rounded-lg text-sm bg-white text-slate-900" value={notifyState.endDate} onChange={e => setNotifyState(prev => ({ ...prev, endDate: e.target.value }))} /></div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase">Start Date</label>
+                            <input 
+                              type="date" 
+                              className="w-full mt-1 p-2 border rounded-lg text-sm bg-white text-slate-900 cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none" 
+                              style={{ colorScheme: 'light' }}
+                              value={notifyState.startDate} 
+                              onChange={e => setNotifyState(prev => ({ ...prev, startDate: e.target.value }))} 
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase">End Date</label>
+                            <input 
+                              type="date" 
+                              className="w-full mt-1 p-2 border rounded-lg text-sm bg-white text-slate-900 cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none" 
+                              style={{ colorScheme: 'light' }}
+                              value={notifyState.endDate} 
+                              onChange={e => setNotifyState(prev => ({ ...prev, endDate: e.target.value }))} 
+                            />
+                          </div>
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                         <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase">Event Name</label>
+                            <input 
+                                type="text" 
+                                placeholder="Optional..."
+                                className="w-full mt-1 p-2 border rounded-lg text-sm bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                                value={notifyState.filterName}
+                                onChange={e => setNotifyState(prev => ({ ...prev, filterName: e.target.value }))}
+                            />
+                         </div>
+                         <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase">Event Type</label>
+                            <select 
+                                className="w-full mt-1 p-2 border rounded-lg text-sm bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                                value={notifyState.filterType}
+                                onChange={e => setNotifyState(prev => ({ ...prev, filterType: e.target.value }))}
+                            >
+                                <option value="all">All Types</option>
+                                <option value="service">Service</option>
+                                <option value="youth">Youth</option>
+                                <option value="outreach">Outreach</option>
+                                <option value="meeting">Meeting</option>
+                            </select>
+                         </div>
+                      </div>
+
                       <button onClick={calculateBatchAbsentees} className="w-full py-3 bg-blue-900 text-white rounded-lg font-bold hover:bg-blue-800 transition-colors mt-2">Identify Absentees</button>
                   </div>
               )}
               {notifyState.step === 'method' && (
                 <div className="space-y-4 animate-in slide-in-from-right-4">
-                  <p className="text-slate-600 text-sm mb-4">There are <strong className="text-slate-900">{notifyState.absenteeCount} active members</strong> who {notifyState.mode === 'single' ? 'missed this event' : 'have not attended any events in this range'}. How would you like to contact them?</p>
-                  <button onClick={() => handleMethodSelect('email')} className="w-full flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-all group text-left">
-                    <div className="p-3 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-200 transition-colors"><Mail className="w-6 h-6" /></div>
-                    <div><h4 className="font-bold text-slate-900 group-hover:text-blue-900">Send Email</h4><p className="text-xs text-slate-500">Best for newsletters and detailed updates.</p></div>
-                  </button>
-                  <button onClick={() => handleMethodSelect('sms')} className="w-full flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-green-400 hover:bg-green-50 transition-all group text-left">
-                    <div className="p-3 bg-green-100 text-green-600 rounded-lg group-hover:bg-green-200 transition-colors"><Smartphone className="w-6 h-6" /></div>
-                    <div><h4 className="font-bold text-slate-900 group-hover:text-green-900">Send SMS</h4><p className="text-xs text-slate-500">High open rates, best for short check-ins.</p></div>
-                  </button>
+                  {notifyState.absenteeCount === 0 ? (
+                    <div className="text-center py-8">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-900 mb-2">Full Attendance!</h4>
+                        <p className="text-slate-600 text-sm mb-6">
+                            There are 0 active members who have not attended any events in this range (matching criteria).
+                        </p>
+                        <button 
+                            onClick={() => setNotifyState(prev => ({ ...prev, isOpen: false }))}
+                            className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold transition-colors"
+                        >
+                            OK, Close
+                        </button>
+                    </div>
+                  ) : (
+                    <>
+                        <p className="text-slate-600 text-sm mb-4">There are <strong className="text-slate-900">{notifyState.absenteeCount} active members</strong> who {notifyState.mode === 'single' ? 'missed this event' : 'have not attended any events in this range'}. How would you like to contact them?</p>
+                        <button onClick={() => handleMethodSelect('email')} className="w-full flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-all group text-left">
+                            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg group-hover:bg-blue-200 transition-colors"><Mail className="w-6 h-6" /></div>
+                            <div><h4 className="font-bold text-slate-900 group-hover:text-blue-900">Send Email</h4><p className="text-xs text-slate-500">Best for newsletters and detailed updates.</p></div>
+                        </button>
+                        <button onClick={() => handleMethodSelect('sms')} className="w-full flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-green-400 hover:bg-green-50 transition-all group text-left">
+                            <div className="p-3 bg-green-100 text-green-600 rounded-lg group-hover:bg-green-200 transition-colors"><Smartphone className="w-6 h-6" /></div>
+                            <div><h4 className="font-bold text-slate-900 group-hover:text-green-900">Send SMS</h4><p className="text-xs text-slate-500">High open rates, best for short check-ins.</p></div>
+                        </button>
+                    </>
+                  )}
                 </div>
               )} 
               {notifyState.step === 'compose' && (
