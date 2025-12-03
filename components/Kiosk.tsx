@@ -1,8 +1,10 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X } from 'lucide-react';
+import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event } from '../types';
+
+const ITEMS_PER_PAGE = 9;
 
 const Kiosk: React.FC = () => {
   const [step, setStep] = useState<'select' | 'active'>('select');
@@ -12,6 +14,7 @@ const Kiosk: React.FC = () => {
   const [manualId, setManualId] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
   const [showTimeWarning, setShowTimeWarning] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -51,6 +54,9 @@ const Kiosk: React.FC = () => {
           if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
       }
   }, [step, activeEvent]);
+
+  const totalPages = Math.ceil(events.length / ITEMS_PER_PAGE);
+  const paginatedEvents = events.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const selectEvent = async (event: Event) => {
       // Mark event as in-progress automatically
@@ -93,23 +99,17 @@ const Kiosk: React.FC = () => {
 
   const extendTime = async () => {
       // Simply hide warning and assume extended for session
-      // Could also update DB time here if needed, but for now just suppress warning
       setShowTimeWarning(false);
-      // Reset timer to check again in 30 mins? Or just clear it to avoid nagging
       if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
   };
 
   const startCamera = async () => {
     setScanResult({ status: 'idle', message: '' });
-    if (streamRef.current) {
-        // Camera already running
-        return;
-    }
+    if (streamRef.current) return;
 
     try {
-      // Check if browser supports mediaDevices
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Camera API not available in this browser context (Secure HTTPS context required).");
+        throw new Error("Camera API not available.");
       }
       
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
@@ -120,18 +120,7 @@ const Kiosk: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Camera error:", err);
-      let msg = "Camera access error.";
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          msg = "Permission denied. Please allow camera access in your browser settings.";
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-          msg = "No camera device found.";
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-          msg = "Camera is currently in use by another application.";
-      } else if (err.message && err.message.includes('Secure context')) {
-          msg = "Camera requires a secure HTTPS connection.";
-      }
-      
-      setScanResult({ status: 'error', message: msg });
+      setScanResult({ status: 'error', message: "Camera access required." });
       setCameraActive(false);
     }
   };
@@ -167,22 +156,21 @@ const Kiosk: React.FC = () => {
         setScanResult({ status: 'error', message: 'Member ID not found.' });
       }
     } catch (e) {
-      setScanResult({ status: 'error', message: 'System error processing attendance.' });
+      setScanResult({ status: 'error', message: 'System error.' });
     }
 
     setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
   }, [activeEvent]);
 
   const simulateScan = () => {
-    // Generate a random numeric ID for simulation, assuming backend uses something similar or GUIDs
-    // Since mockDb previously used 'm1', 'm2', we assume similar structure or fetch real ID
-    processAttendance('m1'); 
+    // For demo, assume we have members with these IDs
+    processAttendance('AB12C3'); 
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if(manualId) {
-        processAttendance(manualId);
+        processAttendance(manualId.toUpperCase());
         setManualId('');
     }
   };
@@ -201,14 +189,14 @@ const Kiosk: React.FC = () => {
                         <p className="text-slate-500 font-medium">No upcoming events found.</p>
                         <p className="text-sm text-slate-400">Please schedule an event first.</p>
                     </div>
-                ) : events.map(event => (
+                ) : paginatedEvents.map(event => (
                     <button 
                         key={event.id}
                         onClick={() => selectEvent(event)}
                         className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all text-left group relative overflow-hidden"
                     >
                         <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-1">{event.name}</h3>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1 truncate">{event.name}</h3>
                         <p className="text-sm text-slate-500 mb-4 flex items-center gap-2">
                              <Calendar className="w-4 h-4" />
                              {new Date(event.date).toLocaleDateString()}
@@ -224,6 +212,27 @@ const Kiosk: React.FC = () => {
                     </button>
                 ))}
             </div>
+
+            {/* Pagination */}
+            {events.length > ITEMS_PER_PAGE && (
+              <div className="flex justify-center items-center mt-8 gap-4">
+                  <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  >
+                      <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="text-sm font-medium text-slate-600">Page {currentPage} of {totalPages}</span>
+                  <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  >
+                      <ChevronRight className="w-5 h-5" />
+                  </button>
+              </div>
+            )}
         </div>
       </div>
     );
@@ -288,7 +297,6 @@ const Kiosk: React.FC = () => {
           {cameraActive ? (
             <>
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                {/* Instructions Overlay */}
                 <div className="absolute top-8 left-0 right-0 text-center z-20 pointer-events-none">
                     <div className="bg-black/50 backdrop-blur-md text-white px-6 py-2 rounded-full inline-block font-medium border border-white/20 shadow-lg text-sm md:text-base">
                         Position QR code in the frame to check in
@@ -342,7 +350,7 @@ const Kiosk: React.FC = () => {
                 value={manualId}
                 onChange={e => setManualId(e.target.value)}
                 placeholder="Or enter Member ID manually..." 
-                className="w-full bg-slate-800 border-none text-white placeholder-slate-500 rounded-xl py-4 px-6 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full bg-slate-800 border-none text-white placeholder-slate-500 rounded-xl py-4 px-6 focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono tracking-wider"
             />
             <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white">
                 →
