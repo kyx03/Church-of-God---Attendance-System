@@ -1,28 +1,64 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
+import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event } from '../types';
 
 const Kiosk: React.FC = () => {
-  const [hasStarted, setHasStarted] = useState(false);
+  const [step, setStep] = useState<'select' | 'active'>('select');
+  const [events, setEvents] = useState<Event[]>([]);
   const [activeEvent, setActiveEvent] = useState<Event | null>(null);
   const [scanResult, setScanResult] = useState<{status: 'success' | 'error' | 'idle', message: string}>({ status: 'idle', message: '' });
   const [manualId, setManualId] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
+  const [showTimeWarning, setShowTimeWarning] = useState(false);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const timeCheckInterval = useRef<any>(null);
 
   useEffect(() => {
-    db.getEvents().then(events => {
-      const sorted = events.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setActiveEvent(sorted[0]);
+    db.getEvents().then(allEvents => {
+      // Filter out completed and cancelled events
+      const validEvents = allEvents
+        .filter(e => e.status !== 'completed' && e.status !== 'cancelled')
+        .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      setEvents(validEvents);
     });
     // Cleanup on unmount
     return () => {
         stopCamera();
+        if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
     };
   }, []);
+
+  // Time check logic
+  useEffect(() => {
+      if (step === 'active' && activeEvent) {
+          // Check every minute
+          timeCheckInterval.current = setInterval(() => {
+              const startTime = new Date(activeEvent.date).getTime();
+              const now = Date.now();
+              // Assume default duration is 90 minutes (5400000 ms)
+              const duration = 90 * 60 * 1000; 
+              
+              if (now > startTime + duration) {
+                  setShowTimeWarning(true);
+              }
+          }, 60000); 
+      }
+      return () => {
+          if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
+      }
+  }, [step, activeEvent]);
+
+  const selectEvent = async (event: Event) => {
+      // Mark event as in-progress automatically
+      await db.updateEvent(event.id, { status: 'in-progress' });
+      setActiveEvent({ ...event, status: 'in-progress' });
+      setStep('active');
+      enterKioskMode();
+  };
 
   const enterKioskMode = async () => {
     try {
@@ -32,7 +68,6 @@ const Kiosk: React.FC = () => {
     } catch (e) {
       console.warn("Fullscreen request denied or not supported.", e);
     }
-    setHasStarted(true);
     startCamera();
   };
 
@@ -40,8 +75,28 @@ const Kiosk: React.FC = () => {
     if (document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen().catch(err => console.error(err));
     }
-    setHasStarted(false);
+    setStep('select');
+    setActiveEvent(null);
     stopCamera();
+    setShowTimeWarning(false);
+  };
+
+  const markEventCompleted = async () => {
+      if (activeEvent) {
+          await db.updateEvent(activeEvent.id, { status: 'completed' });
+          exitKioskMode();
+          // Refresh list
+          const allEvents = await db.getEvents();
+          setEvents(allEvents.filter(e => e.status !== 'completed' && e.status !== 'cancelled').sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      }
+  };
+
+  const extendTime = async () => {
+      // Simply hide warning and assume extended for session
+      // Could also update DB time here if needed, but for now just suppress warning
+      setShowTimeWarning(false);
+      // Reset timer to check again in 30 mins? Or just clear it to avoid nagging
+      if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
   };
 
   const startCamera = async () => {
@@ -132,30 +187,43 @@ const Kiosk: React.FC = () => {
     }
   };
 
-  if (!hasStarted) {
+  if (step === 'select') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div>
-           <h2 className="text-3xl font-bold text-slate-900">Kiosk Mode</h2>
-           <p className="text-slate-500 mt-2">Launch the self-service attendance station.</p>
-        </div>
+      <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center">
+        <div className="max-w-4xl w-full">
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">Kiosk Setup</h2>
+            <p className="text-slate-500 mb-8">Select an event to start attendance tracking.</p>
 
-        <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 max-w-md w-full flex flex-col items-center">
-          <div className="bg-blue-50 p-4 rounded-full mb-6">
-            <QrCode className="w-12 h-12 text-blue-900" />
-          </div>
-          <h3 className="text-xl font-bold text-slate-900 mb-2">Ready to Scan</h3>
-          <p className="text-slate-500 mb-8 text-center">
-            This will launch a full-screen interface for 
-            <span className="font-semibold text-slate-900"> {activeEvent?.name || 'the upcoming event'}</span>.
-          </p>
-          <button 
-            onClick={enterKioskMode}
-            className="w-full bg-blue-900 text-white px-6 py-4 rounded-xl font-bold text-lg hover:bg-blue-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-900/20 hover:shadow-blue-500/30"
-          >
-            <Maximize className="w-5 h-5" />
-            Launch Fullscreen
-          </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events.length === 0 ? (
+                    <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+                        <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                        <p className="text-slate-500 font-medium">No upcoming events found.</p>
+                        <p className="text-sm text-slate-400">Please schedule an event first.</p>
+                    </div>
+                ) : events.map(event => (
+                    <button 
+                        key={event.id}
+                        onClick={() => selectEvent(event)}
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all text-left group relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-1">{event.name}</h3>
+                        <p className="text-sm text-slate-500 mb-4 flex items-center gap-2">
+                             <Calendar className="w-4 h-4" />
+                             {new Date(event.date).toLocaleDateString()}
+                             <span className="text-slate-300">|</span>
+                             {new Date(event.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </p>
+                        <div className="flex items-center justify-between mt-4">
+                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${event.status === 'in-progress' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+                                {event.status === 'in-progress' ? 'Resuming' : 'Start'}
+                            </span>
+                            <PlayCircle className="w-8 h-8 text-slate-200 group-hover:text-blue-600 transition-colors" />
+                        </div>
+                    </button>
+                ))}
+            </div>
         </div>
       </div>
     );
@@ -163,11 +231,47 @@ const Kiosk: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center text-white p-4">
+      {/* Time Warning Modal */}
+      {showTimeWarning && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white text-slate-900 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+                  <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Clock className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">Event Finished?</h3>
+                  <p className="text-slate-500 mb-6">
+                      The scheduled time for <strong>{activeEvent?.name}</strong> has passed. 
+                      Would you like to mark it as completed or keep the kiosk running?
+                  </p>
+                  <div className="flex flex-col gap-3">
+                      <button 
+                          onClick={markEventCompleted}
+                          className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                      >
+                          <CheckCircle className="w-5 h-5" />
+                          Yes, Mark as Completed
+                      </button>
+                      <button 
+                          onClick={extendTime}
+                          className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+                      >
+                          Extend Time (Keep Open)
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent z-20">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight">Church of God</h1>
-          <p className="text-slate-300 text-sm">
-            {activeEvent ? `Check-in: ${activeEvent.name}` : 'No Active Event'}
+          <p className="text-slate-300 text-sm flex items-center gap-2">
+            {activeEvent ? (
+                <>
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    Check-in: {activeEvent.name}
+                </>
+            ) : 'No Active Event'}
           </p>
         </div>
         <button 

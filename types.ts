@@ -24,7 +24,7 @@ export interface Event {
   date: string; // ISO date string
   location?: string;
   type: 'service' | 'youth' | 'outreach' | 'meeting';
-  status: 'upcoming' | 'completed' | 'cancelled';
+  status: 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
   cancellationReason?: string;
 }
 

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check, Edit2 } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check, Edit2, PlayCircle } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event, Member, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -252,12 +252,14 @@ const Events: React.FC = () => {
   const getStatusStyles = (status: string, isPast: boolean) => {
     if (status === 'cancelled') return 'bg-red-50 border-red-200 border-l-red-500 opacity-90';
     if (status === 'completed' || isPast) return 'bg-slate-50 border-slate-200 border-l-slate-400';
+    if (status === 'in-progress') return 'bg-green-50 border-green-200 border-l-green-500 shadow-lg shadow-green-100 ring-1 ring-green-100';
     return 'bg-white shadow-lg shadow-blue-100 ring-1 ring-slate-100 border-l-blue-600';
   };
 
   const getStatusBadge = (status: string, isPast: boolean) => {
     if (status === 'cancelled') return <span className="flex items-center gap-1 text-red-700 font-bold"><XCircle className="w-3.5 h-3.5" /> Cancelled</span>;
     if (status === 'completed' || isPast) return <span className="flex items-center gap-1 text-slate-600 font-bold"><CheckCircle2 className="w-3.5 h-3.5" /> Completed</span>;
+    if (status === 'in-progress') return <span className="flex items-center gap-1 text-green-700 font-bold animate-pulse"><PlayCircle className="w-3.5 h-3.5" /> In Progress</span>;
     return <span className="flex items-center gap-1 text-blue-700 font-bold"><CalendarClock className="w-3.5 h-3.5" /> Upcoming</span>;
   };
 
@@ -479,7 +481,7 @@ const Events: React.FC = () => {
                             {activeStatusId === event.id && (
                                 <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 p-1.5 z-20 animate-in fade-in zoom-in-95 duration-100">
                                     <div className="text-[10px] uppercase font-bold text-slate-400 px-2 py-1 mb-1">Set Status</div>
-                                    {['upcoming', 'completed', 'cancelled'].map(s => (
+                                    {['upcoming', 'in-progress', 'completed', 'cancelled'].map(s => (
                                         <button
                                             key={s}
                                             onClick={() => handleStatusUpdate(event.id, s)}
@@ -581,7 +583,7 @@ const Events: React.FC = () => {
                 {(!isPast && event.status !== 'cancelled') && (
                     <button 
                         onClick={() => setCheckInQrEvent(event)}
-                        className="w-full py-2.5 px-3 text-sm text-blue-700 bg-blue-50/50 hover:bg-blue-100 rounded-lg flex items-center justify-center gap-2 transition-all border border-blue-200/50 font-bold hover:shadow-sm"
+                        className="w-full py-2.5 px-3 text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 font-bold hover:shadow-lg hover:-translate-y-0.5"
                     >
                         <QrCode className="w-4 h-4" />
                         Self Check-in QR
