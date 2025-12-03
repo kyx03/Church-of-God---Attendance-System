@@ -62,7 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
     { path: '/members', label: 'Members', icon: Users, roles: ['admin'] },
-    { path: '/events', label: 'Events', icon: Calendar, roles: ['admin'] },
+    { path: '/events', label: 'Events', icon: Calendar, roles: ['admin', 'volunteer'] },
     { path: '/kiosk', label: 'Kiosk Mode', icon: QrCode, roles: ['admin', 'volunteer'] },
     { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin'] },
   ];

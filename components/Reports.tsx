@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { db } from '../services/mockDb';
 import { Member, Event, AttendanceRecord } from '../types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Download, Users, Calendar as CalendarIcon, FileSpreadsheet } from 'lucide-react';
+import { Download, Users, Calendar as CalendarIcon, FileSpreadsheet, QrCode, Award } from 'lucide-react';
 
 const Reports: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
@@ -40,6 +40,9 @@ const Reports: React.FC = () => {
     return d >= start && d <= end;
   });
 
+  const filteredEventIds = new Set(filteredEvents.map(e => e.id));
+  const filteredAttendance = attendance.filter(a => filteredEventIds.has(a.eventId));
+
   // 2. Member Status Data (Pie)
   const activeCount = members.filter(m => m.status === 'active').length;
   const inactiveCount = members.filter(m => m.status === 'inactive').length;
@@ -66,7 +69,29 @@ const Reports: React.FC = () => {
     };
   });
 
-  // 5. Member List with Last Attended Date
+  // 5. Check-in Methods (Pie)
+  const checkInMethodsData = [
+      { name: 'QR Scan', value: filteredAttendance.filter(a => a.method === 'qr').length, color: '#8b5cf6' },
+      { name: 'Manual', value: filteredAttendance.filter(a => a.method === 'manual').length, color: '#f59e0b' }
+  ].filter(d => d.value > 0);
+
+  // 6. Top Attendees (Bar)
+  const attendanceCounts: Record<string, number> = {};
+  filteredAttendance.forEach(a => {
+    attendanceCounts[a.memberId] = (attendanceCounts[a.memberId] || 0) + 1;
+  });
+  const topAttendeesData = Object.entries(attendanceCounts)
+    .map(([memberId, count]) => {
+        const member = members.find(m => m.id === memberId);
+        return {
+        name: member ? `${member.firstName} ${member.lastName}` : 'Unknown',
+        count
+        };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5); // Top 5
+
+  // 7. Member List with Last Attended Date
   const processedMembers = members.map(m => {
     const memberAttendance = attendance.filter(a => a.memberId === m.id);
     let lastAttendedDate: string | null = null;
@@ -257,35 +282,87 @@ const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Row 2: Bar Chart */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-        <div className="mb-6">
-            <h3 className="font-bold text-slate-900 text-lg">Attendance by Event Type</h3>
-            <p className="text-sm text-slate-500">Total attendance counts for the selected period.</p>
+      {/* Row 2: Attendance Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Attendance by Event Type */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <div className="mb-6">
+                <h3 className="font-bold text-slate-900 text-lg">Attendance by Event Type</h3>
+                <p className="text-sm text-slate-500">Total counts for the selected period.</p>
+            </div>
+            <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={attendanceByTypeData} margin={{top: 10, right: 30, left: 0, bottom: 0}}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fill: '#64748b', fontSize: 12}} 
+                            dy={10}
+                        />
+                        <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fill: '#64748b', fontSize: 12}} 
+                        />
+                        <Tooltip 
+                            cursor={{fill: '#f8fafc'}}
+                            contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 10px 15px -3px rgba(0,0,0,0.1)'}}
+                        />
+                        <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
         </div>
-        <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={attendanceByTypeData} margin={{top: 10, right: 30, left: 0, bottom: 0}}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{fill: '#64748b', fontSize: 12}} 
-                        dy={10}
-                    />
-                    <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{fill: '#64748b', fontSize: 12}} 
-                    />
-                    <Tooltip 
-                        cursor={{fill: '#f8fafc'}}
-                        contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 10px 15px -3px rgba(0,0,0,0.1)'}}
-                    />
-                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={50} />
-                </BarChart>
-            </ResponsiveContainer>
+
+        {/* Check-in Methods & Top Attendees */}
+        <div className="space-y-6">
+            {/* Check-in Methods */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <div>
+                     <h3 className="font-bold text-slate-900 mb-1 flex items-center gap-2">
+                        <QrCode className="w-4 h-4 text-purple-600" />
+                        Check-in Methods
+                     </h3>
+                     <p className="text-xs text-slate-400">QR vs Manual Entry</p>
+                </div>
+                <div className="h-32 w-32">
+                    {checkInMethodsData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={checkInMethodsData} innerRadius={25} outerRadius={40} paddingAngle={5} dataKey="value">
+                                {checkInMethodsData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    ) : <div className="h-full flex items-center justify-center text-xs text-slate-300">No Data</div>}
+                </div>
+            </div>
+
+            {/* Top Attendees */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex-1">
+                 <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                     <Award className="w-5 h-5 text-amber-500" />
+                     Top Attendees
+                 </h3>
+                 <div className="h-40">
+                     {topAttendeesData.length > 0 ? (
+                         <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={topAttendeesData} layout="vertical" margin={{top: 0, right: 30, left: 30, bottom: 0}}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 11, fill: '#475569'}} axisLine={false} tickLine={false} />
+                                <Tooltip cursor={{fill: '#f8fafc'}} />
+                                <Bar dataKey="count" fill="#0ea5e9" radius={[0, 4, 4, 0]} barSize={15} />
+                            </BarChart>
+                         </ResponsiveContainer>
+                     ) : <div className="h-full flex items-center justify-center text-sm text-slate-400">No attendance data available</div>}
+                 </div>
+            </div>
         </div>
       </div>
 

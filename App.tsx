@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -10,6 +10,7 @@ import Reports from './components/Reports';
 import CheckInPage from './components/CheckInPage';
 import { User, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { db } from './services/mockDb';
 
 const LoginScreen: React.FC = () => {
   const { login } = useAuth();
@@ -17,6 +18,11 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [slogan, setSlogan] = useState('Puelay');
+
+  useEffect(() => {
+    db.getSettings().then(s => setSlogan(s.slogan));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +61,10 @@ const LoginScreen: React.FC = () => {
                   }}
              />
           </div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Church of God</h1>
-          <p className="text-blue-600 font-bold tracking-[0.2em] uppercase text-xs">Attendance Portal</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2 leading-tight">
+            Church of God <span className="text-blue-600 font-bold block text-lg mt-1">{slogan}</span>
+          </h1>
+          <p className="text-slate-400 font-bold tracking-[0.2em] uppercase text-xs">Attendance Portal</p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -180,7 +188,7 @@ const AppContent: React.FC = () => {
         <Route path="*" element={
           <Layout>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={user.role === 'volunteer' ? <Navigate to="/events" replace /> : <Dashboard />} />
               <Route path="/members" element={<Members />} />
               <Route path="/events" element={<Events />} />
               <Route path="/kiosk" element={<Kiosk />} />

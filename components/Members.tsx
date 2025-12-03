@@ -1,9 +1,17 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, FileUp, Edit2 } from 'lucide-react';
+import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, FileUp, Edit2, ChevronDown, Users } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Member, Event, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+
+const PREDEFINED_MINISTRIES = [
+  "Children's Ministry",
+  "Ladies' Ministry",
+  "Men's Ministry",
+  "Music Ministry",
+  "None"
+];
 
 const Members: React.FC = () => {
   const { user } = useAuth();
@@ -24,7 +32,15 @@ const Members: React.FC = () => {
   
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newMember, setNewMember] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [newMember, setNewMember] = useState<{
+    firstName: string; 
+    lastName: string; 
+    email: string; 
+    phone: string;
+    ministry: string;
+  }>({ firstName: '', lastName: '', email: '', phone: '', ministry: 'None' });
+  
+  const [isCustomMinistry, setIsCustomMinistry] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,18 +110,24 @@ const Members: React.FC = () => {
 
   const openAddModal = () => {
     setEditingId(null);
-    setNewMember({ firstName: '', lastName: '', email: '', phone: '' });
+    setNewMember({ firstName: '', lastName: '', email: '', phone: '', ministry: 'None' });
+    setIsCustomMinistry(false);
     setIsModalOpen(true);
   };
 
   const openEditModal = (member: Member) => {
     setEditingId(member.id);
+    const ministry = member.ministry || 'None';
+    const isCustom = !PREDEFINED_MINISTRIES.includes(ministry);
+    
     setNewMember({ 
         firstName: member.firstName, 
         lastName: member.lastName, 
         email: member.email, 
-        phone: member.phone 
+        phone: member.phone,
+        ministry: ministry
     });
+    setIsCustomMinistry(isCustom);
     setIsModalOpen(true);
   };
 
@@ -118,7 +140,8 @@ const Members: React.FC = () => {
             firstName: newMember.firstName,
             lastName: newMember.lastName,
             email: newMember.email,
-            phone: newMember.phone
+            phone: newMember.phone,
+            ministry: newMember.ministry
         });
         setStatusMsg("Member updated successfully.");
     } else {
@@ -135,8 +158,9 @@ const Members: React.FC = () => {
     
     loadData();
     setIsModalOpen(false);
-    setNewMember({ firstName: '', lastName: '', email: '', phone: '' });
+    setNewMember({ firstName: '', lastName: '', email: '', phone: '', ministry: 'None' });
     setEditingId(null);
+    setIsCustomMinistry(false);
     setTimeout(() => setStatusMsg(null), 3000);
   };
 
@@ -171,14 +195,14 @@ const Members: React.FC = () => {
 
       const lines = text.split('\n');
       let count = 0;
-      // Assume CSV format: firstName, lastName, email, phone
+      // Assume CSV format: firstName, lastName, email, phone, ministry
       // Skip header if it exists (heuristic: check if first row has "name" or "email")
       const startIndex = lines[0].toLowerCase().includes('email') ? 1 : 0;
 
       for (let i = startIndex; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        const [firstName, lastName, email, phone] = line.split(',').map(s => s.trim());
+        const [firstName, lastName, email, phone, ministry] = line.split(',').map(s => s.trim());
         
         if (firstName && lastName) {
           await db.addMember({
@@ -188,7 +212,8 @@ const Members: React.FC = () => {
             email: email || '',
             phone: phone || '',
             joinDate: new Date().toISOString().split('T')[0],
-            status: 'active'
+            status: 'active',
+            ministry: ministry || 'None'
           });
           count++;
         }
@@ -249,6 +274,7 @@ const Members: React.FC = () => {
             }
             .org-name { font-size: 18px; font-weight: bold; color: #1e3a8a; margin-bottom: 4px; }
             .label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
+            .ministry { background: #eff6ff; color: #1e40af; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-bottom: 12px; }
             .qr-container { 
               border: 2px solid #e2e8f0; 
               border-radius: 12px; 
@@ -273,6 +299,7 @@ const Members: React.FC = () => {
           <div class="card">
             <div class="org-name">Church of God</div>
             <div class="label">Official Member</div>
+            ${selectedMember.ministry && selectedMember.ministry !== 'None' ? `<div class="ministry">${selectedMember.ministry}</div>` : ''}
             <div class="qr-container">
               <img src="${qrUrl}" class="qr-img" />
             </div>
@@ -386,6 +413,7 @@ const Members: React.FC = () => {
               <tr>
                 <th className="px-6 py-4">Name</th>
                 <th className="px-6 py-4 hidden md:table-cell">Contact</th>
+                <th className="px-6 py-4">Ministry</th>
                 <th className="px-6 py-4 hidden sm:table-cell">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
@@ -404,6 +432,15 @@ const Members: React.FC = () => {
                     <div className="flex items-center gap-2 mt-1">
                       <Phone className="w-3 h-3" /> {member.phone}
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                      {member.ministry && member.ministry !== 'None' ? (
+                          <span className="px-2 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                              {member.ministry}
+                          </span>
+                      ) : (
+                          <span className="text-slate-400 text-xs italic">None</span>
+                      )}
                   </td>
                   <td className="px-6 py-4 hidden sm:table-cell">
                     <div className="flex items-center gap-2">
@@ -492,6 +529,11 @@ const Members: React.FC = () => {
               </div>
               <div>
                 <p className="font-semibold text-lg">{selectedMember.firstName} {selectedMember.lastName}</p>
+                 {selectedMember.ministry && selectedMember.ministry !== 'None' && (
+                     <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold mb-2 border border-indigo-100">
+                         {selectedMember.ministry}
+                     </span>
+                 )}
                 <p className="text-slate-500 font-mono text-sm">{selectedMember.id}</p>
               </div>
               <button 
@@ -614,6 +656,51 @@ const Members: React.FC = () => {
                   />
                 </div>
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ministry Type</label>
+                 {isCustomMinistry ? (
+                    <div className="flex gap-2">
+                        <input 
+                            autoFocus
+                            type="text"
+                            placeholder="Enter ministry name..."
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900"
+                            value={newMember.ministry}
+                            onChange={e => setNewMember({...newMember, ministry: e.target.value})}
+                        />
+                        <button 
+                            type="button" 
+                            onClick={() => { setIsCustomMinistry(false); setNewMember({...newMember, ministry: 'None'}); }} 
+                            className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <select 
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900 appearance-none"
+                            value={newMember.ministry}
+                            onChange={e => {
+                                if (e.target.value === 'custom') {
+                                    setIsCustomMinistry(true);
+                                    setNewMember({...newMember, ministry: ''});
+                                } else {
+                                    setNewMember({...newMember, ministry: e.target.value});
+                                }
+                            }}
+                        >
+                            {PREDEFINED_MINISTRIES.map(m => (
+                                <option key={m} value={m}>{m}</option>
+                            ))}
+                            <option value="custom">Other / Custom...</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-slate-400 font-normal">(Optional)</span></label>
                 <input 

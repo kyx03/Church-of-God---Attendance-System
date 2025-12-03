@@ -9,11 +9,11 @@ export const MOCK_USERS: (User & { password: string })[] = [
 ];
 
 export const MOCK_MEMBERS: Member[] = [
-  { id: 'm1', firstName: 'John', lastName: 'Doe', email: 'john@example.com', phone: '555-0101', joinDate: '2023-01-15', status: 'active' },
-  { id: 'm2', firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com', phone: '555-0102', joinDate: '2023-02-20', status: 'active' },
-  { id: 'm3', firstName: 'Robert', lastName: 'Johnson', email: 'bob@example.com', phone: '555-0103', joinDate: '2022-11-05', status: 'inactive' },
-  { id: 'm4', firstName: 'Mary', lastName: 'Williams', email: 'mary@example.com', phone: '555-0104', joinDate: '2023-06-10', status: 'active' },
-  { id: 'm5', firstName: 'David', lastName: 'Brown', email: 'david@example.com', phone: '555-0105', joinDate: '2024-01-01', status: 'active' },
+  { id: 'm1', firstName: 'John', lastName: 'Doe', email: 'john@example.com', phone: '555-0101', joinDate: '2023-01-15', status: 'active', ministry: "Men's Ministry" },
+  { id: 'm2', firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com', phone: '555-0102', joinDate: '2023-02-20', status: 'active', ministry: "Ladies' Ministry" },
+  { id: 'm3', firstName: 'Robert', lastName: 'Johnson', email: 'bob@example.com', phone: '555-0103', joinDate: '2022-11-05', status: 'inactive', ministry: 'None' },
+  { id: 'm4', firstName: 'Mary', lastName: 'Williams', email: 'mary@example.com', phone: '555-0104', joinDate: '2023-06-10', status: 'active', ministry: 'Music Ministry' },
+  { id: 'm5', firstName: 'David', lastName: 'Brown', email: 'david@example.com', phone: '555-0105', joinDate: '2024-01-01', status: 'active', ministry: "Children's Ministry" },
 ];
 
 export const MOCK_EVENTS: Event[] = [

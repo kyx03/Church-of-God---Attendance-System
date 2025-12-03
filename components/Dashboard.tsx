@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Users, CalendarCheck, TrendingUp, Sparkles, Loader2 } from 'lucide-react';
+import { Users, CalendarCheck, TrendingUp, Sparkles, Loader2, Calendar } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Member, Event, AttendanceRecord } from '../types';
 import { generateMinistryInsight } from '../services/geminiService';
@@ -36,6 +36,11 @@ const Dashboard: React.FC = () => {
         type: event.type
       };
     });
+
+  // Recent Events Data (Last 5)
+  const recentEvents = [...events]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
 
   const handleGetInsight = async () => {
     setLoadingInsight(true);
@@ -178,6 +183,67 @@ const Dashboard: React.FC = () => {
               <Bar dataKey="attendees" fill="#dc2626" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Recent Events Log */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+            <div className="p-2 bg-slate-100 rounded-lg">
+                <Calendar className="w-5 h-5 text-slate-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Recent Events Log</h3>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500 font-medium">
+                <tr>
+                <th className="px-6 py-4">Event Name</th>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4">Type</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Attendance</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+                {recentEvents.length === 0 ? (
+                    <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic">No events recorded yet.</td>
+                    </tr>
+                ) : (
+                    recentEvents.map(event => {
+                    const count = attendance.filter(a => a.eventId === event.id).length;
+                    return (
+                        <tr key={event.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 font-semibold text-slate-900">{event.name}</td>
+                            <td className="px-6 py-4 text-slate-500">
+                                {new Date(event.date).toLocaleDateString()} 
+                                <span className="text-slate-300 mx-2">|</span>
+                                {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className="capitalize px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium border border-slate-200">
+                                    {event.type}
+                                </span>
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                                    event.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                    event.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                    event.status === 'in-progress' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                    {event.status}
+                                </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                                <span className="font-bold text-slate-900 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">{count}</span>
+                            </td>
+                        </tr>
+                    )
+                    })
+                )}
+            </tbody>
+            </table>
         </div>
       </div>
     </div>

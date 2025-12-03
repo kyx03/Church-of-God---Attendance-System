@@ -16,6 +16,7 @@ export interface Member {
   phone: string;
   joinDate: string;
   status: 'active' | 'inactive';
+  ministry?: string;
 }
 
 export interface Event {
