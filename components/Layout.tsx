@@ -60,11 +60,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   // Define menu items based on roles
   const menuItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'pastor'] },
-    { path: '/members', label: 'Members', icon: Users, roles: ['admin', 'secretary'] },
-    { path: '/events', label: 'Events', icon: Calendar, roles: ['admin', 'secretary', 'pastor'] },
-    { path: '/kiosk', label: 'Kiosk Mode', icon: QrCode, roles: ['admin', 'volunteer', 'secretary'] },
-    { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'pastor', 'secretary'] },
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
+    { path: '/members', label: 'Members', icon: Users, roles: ['admin'] },
+    { path: '/events', label: 'Events', icon: Calendar, roles: ['admin'] },
+    { path: '/kiosk', label: 'Kiosk Mode', icon: QrCode, roles: ['admin', 'volunteer'] },
+    { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin'] },
   ];
 
   const allowedItems = menuItems.filter(item => item.roles.includes(user.role));
@@ -74,16 +74,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div 
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 z-30 bg-black/50 md:hidden backdrop-blur-sm"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-40 w-64 bg-blue-900 text-white flex flex-col shadow-xl 
+        fixed md:static inset-y-0 left-0 z-40 w-64 bg-blue-900 text-white flex flex-col shadow-xl 
         transform transition-transform duration-300 ease-in-out
-        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <div className="p-6 border-b border-blue-800 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -106,7 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
             </div>
           </div>
-          <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden text-white/70 hover:text-white">
+          <button onClick={() => setMobileMenuOpen(false)} className="md:hidden text-white/70 hover:text-white">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -162,7 +162,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
-        <div className="lg:hidden bg-blue-900 text-white p-4 flex items-center justify-between shadow-md z-20">
+        <div className="md:hidden bg-blue-900 text-white p-4 flex items-center justify-between shadow-md z-20">
             <div className="flex items-center gap-3">
                  <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white rounded-md p-0.5" />
                  <span className="font-bold">Puelay</span>
@@ -216,7 +216,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   required
                   value={editForm.name}
                   onChange={e => setEditForm({...editForm, name: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900" 
                 />
               </div>
               
@@ -227,7 +227,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   required
                   value={editForm.username}
                   onChange={e => setEditForm({...editForm, username: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900" 
                 />
               </div>
 
@@ -238,7 +238,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   placeholder="Leave blank to keep current"
                   value={editForm.password}
                   onChange={e => setEditForm({...editForm, password: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900" 
                 />
                 <p className="text-xs text-slate-500 mt-1">Optional. Enter a new password to change it.</p>
               </div>

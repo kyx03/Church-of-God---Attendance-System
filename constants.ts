@@ -4,9 +4,7 @@ import { Member, Event, AttendanceRecord, User } from './types';
 // In a real app, passwords would never be stored here. 
 // This is solely for the mock authentication flow in the browser preview.
 export const MOCK_USERS: (User & { password: string })[] = [
-  { id: 'u1', name: 'Rev. Thomas', username: 'pastor', role: 'pastor', password: 'password' },
   { id: 'u2', name: 'Sarah Admin', username: 'admin', role: 'admin', password: 'password' },
-  { id: 'u3', name: 'Emily Sec', username: 'secretary', role: 'secretary', password: 'password' },
   { id: 'u4', name: 'Mike Vol', username: 'volunteer', role: 'volunteer', password: 'password' },
 ];
 

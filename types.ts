@@ -1,5 +1,5 @@
 
-export type Role = 'admin' | 'pastor' | 'secretary' | 'volunteer';
+export type Role = 'admin' | 'volunteer' | 'secretary';
 
 export interface User {
   id: string;
@@ -25,6 +25,7 @@ export interface Event {
   location?: string;
   type: 'service' | 'youth' | 'outreach' | 'meeting';
   status: 'upcoming' | 'completed' | 'cancelled';
+  cancellationReason?: string;
 }
 
 export interface AttendanceRecord {

@@ -1,6 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
-import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, FileUp } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Member, Event, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,15 +13,17 @@ const Members: React.FC = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'last_service' | 'never'>('all');
+  const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'last_service' | 'last_30_days' | 'last_90_days' | 'never'>('all');
 
   // Modals
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [historyMember, setHistoryMember] = useState<Member | null>(null);
   const [deleteMemberTarget, setDeleteMemberTarget] = useState<Member | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   
   const [newMember, setNewMember] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canEdit = user?.role === 'admin' || user?.role === 'secretary';
 
@@ -41,20 +43,30 @@ const Members: React.FC = () => {
   };
 
   const filteredMembers = members.filter(m => {
-    // 1. Search Text
-    const matchesSearch = `${m.firstName} ${m.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    // 1. Search Text (Name OR Email)
+    const matchesSearch = 
+        `${m.firstName} ${m.lastName}`.toLowerCase().includes(term) ||
+        m.email.toLowerCase().includes(term);
     
     // 2. Status Filter
     const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
 
     // 3. Attendance Filter
     let matchesAttendance = true;
+    
+    // Calculate last attended date
+    const memberAttendance = attendance.filter(a => a.memberId === m.id);
+    let lastAttendedTime = 0;
+    memberAttendance.forEach(a => {
+        const evt = events.find(e => e.id === a.eventId);
+        const time = evt ? new Date(evt.date).getTime() : new Date(a.timestamp).getTime();
+        if (time > lastAttendedTime) lastAttendedTime = time;
+    });
+
     if (attendanceFilter === 'never') {
-      const hasAnyAttendance = attendance.some(a => a.memberId === m.id);
-      matchesAttendance = !hasAnyAttendance;
+      matchesAttendance = memberAttendance.length === 0;
     } else if (attendanceFilter === 'last_service') {
-      // Find the most recent 'completed' service
       const lastService = events
         .filter(e => e.type === 'service' && e.status === 'completed')
         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
@@ -62,8 +74,16 @@ const Members: React.FC = () => {
       if (lastService) {
         matchesAttendance = attendance.some(a => a.memberId === m.id && a.eventId === lastService.id);
       } else {
-        matchesAttendance = false; // No last service exists
+        matchesAttendance = false;
       }
+    } else if (attendanceFilter === 'last_30_days') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        matchesAttendance = lastAttendedTime >= thirtyDaysAgo.getTime();
+    } else if (attendanceFilter === 'last_90_days') {
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        matchesAttendance = lastAttendedTime >= ninetyDaysAgo.getTime();
     }
 
     return matchesSearch && matchesStatus && matchesAttendance;
@@ -87,6 +107,11 @@ const Members: React.FC = () => {
     const newStatus = member.status === 'active' ? 'inactive' : 'active';
     // Optimistic update
     setMembers(members.map(m => m.id === member.id ? { ...m, status: newStatus } : m));
+    
+    // Toast Feedback
+    setStatusMsg(`${member.firstName} is now ${newStatus}.`);
+    setTimeout(() => setStatusMsg(null), 3000);
+
     await db.updateMember(member.id, { status: newStatus });
   };
 
@@ -98,6 +123,48 @@ const Members: React.FC = () => {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split('\n');
+      let count = 0;
+      // Assume CSV format: firstName, lastName, email, phone
+      // Skip header if it exists (heuristic: check if first row has "name" or "email")
+      const startIndex = lines[0].toLowerCase().includes('email') ? 1 : 0;
+
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const [firstName, lastName, email, phone] = line.split(',').map(s => s.trim());
+        
+        if (firstName && lastName) {
+          await db.addMember({
+            id: `m_imp_${Date.now()}_${i}`,
+            firstName,
+            lastName,
+            email: email || '',
+            phone: phone || '',
+            joinDate: new Date().toISOString().split('T')[0],
+            status: 'active'
+          });
+          count++;
+        }
+      }
+      
+      loadData();
+      alert(`Successfully imported ${count} members.`);
+    };
+    reader.readAsText(file);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const getMemberHistory = (memberId: string) => {
       const records = attendance.filter(a => a.memberId === memberId);
       return records.map(r => {
@@ -107,18 +174,119 @@ const Members: React.FC = () => {
       .sort((a, b) => new Date(b.event!.date).getTime() - new Date(a.event!.date).getTime());
   };
 
+  const handlePrintCard = () => {
+    if (!selectedMember) return;
+    
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (!printWindow) return;
+
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedMember.id}`;
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Member ID - ${selectedMember.firstName}</title>
+          <style>
+            body { 
+              font-family: sans-serif; 
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              height: 100vh; 
+              margin: 0; 
+              background: #f0f0f0;
+            }
+            .card {
+              width: 300px;
+              height: 480px;
+              background: white;
+              border-radius: 16px;
+              padding: 24px;
+              text-align: center;
+              border: 1px solid #ddd;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+            }
+            .org-name { font-size: 18px; font-weight: bold; color: #1e3a8a; margin-bottom: 4px; }
+            .label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
+            .qr-container { 
+              border: 2px solid #e2e8f0; 
+              border-radius: 12px; 
+              padding: 16px; 
+              margin-bottom: 24px;
+              width: 200px;
+              height: 200px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .qr-img { width: 100%; height: 100%; object-fit: contain; }
+            .name { font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2; }
+            .id { font-family: monospace; color: #94a3b8; margin-top: 8px; font-size: 14px; }
+            @media print {
+              body { background: white; }
+              .card { border: 2px solid #000; box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="org-name">Church of God</div>
+            <div class="label">Official Member</div>
+            <div class="qr-container">
+              <img src="${qrUrl}" class="qr-img" />
+            </div>
+            <h2 class="name">${selectedMember.firstName}<br/>${selectedMember.lastName}</h2>
+            <div class="id">ID: ${selectedMember.id}</div>
+          </div>
+          <script>
+            window.onload = () => { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Toast Notification */}
+      {statusMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-800 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in slide-in-from-bottom-4 fade-in">
+           <CheckCircle2 className="w-5 h-5 text-green-400" />
+           <span className="font-medium text-sm">{statusMsg}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold text-slate-900">Members</h2>
         {canEdit && (
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Add Member
-          </button>
+          <div className="flex gap-2">
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload} 
+                accept=".csv" 
+                className="hidden" 
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
+            >
+              <FileUp className="w-5 h-5" />
+              Import CSV
+            </button>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Add Member
+            </button>
+          </div>
         )}
       </div>
 
@@ -129,11 +297,11 @@ const Members: React.FC = () => {
             <div className="relative max-w-md w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
-                type="text"
-                placeholder="Search members..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-slate-900"
                 />
             </div>
             
@@ -143,12 +311,17 @@ const Members: React.FC = () => {
                 <select
                     value={attendanceFilter}
                     onChange={(e) => setAttendanceFilter(e.target.value as any)}
-                    className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-700"
+                    className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-900 appearance-none min-w-[200px]"
                 >
                     <option value="all">All History</option>
                     <option value="last_service">Attended Last Service</option>
+                    <option value="last_30_days">Attended in Last 30 Days</option>
+                    <option value="last_90_days">Attended in Last 90 Days</option>
                     <option value="never">Never Attended</option>
                 </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                     <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                </div>
             </div>
           </div>
           
@@ -183,8 +356,8 @@ const Members: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredMembers.map(member => (
                 <tr key={member.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 cursor-pointer" onClick={() => setHistoryMember(member)}>
-                    <div className="font-semibold text-slate-900">{member.firstName} {member.lastName}</div>
+                  <td className="px-6 py-4 cursor-pointer group" onClick={() => setHistoryMember(member)}>
+                    <div className="font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">{member.firstName} {member.lastName}</div>
                     <div className="text-slate-500 text-xs sm:hidden">{member.email}</div>
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell text-slate-600">
@@ -206,8 +379,8 @@ const Members: React.FC = () => {
                         {canEdit && (
                              <button
                                 onClick={() => handleStatusToggle(member)}
-                                className={`w-8 h-4 rounded-full p-0.5 transition-colors ${member.status === 'active' ? 'bg-blue-600' : 'bg-slate-300'}`}
-                                title="Toggle Status"
+                                className={`w-8 h-4 rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 ${member.status === 'active' ? 'bg-blue-600' : 'bg-slate-300'}`}
+                                title={`Mark as ${member.status === 'active' ? 'inactive' : 'active'}`}
                             >
                                 <div className={`w-3 h-3 bg-white rounded-full shadow-sm transform transition-transform ${member.status === 'active' ? 'translate-x-4' : 'translate-x-0'}`} />
                             </button>
@@ -277,7 +450,7 @@ const Members: React.FC = () => {
               </div>
               <button 
                 className="w-full py-2.5 rounded-lg bg-blue-900 text-white font-medium hover:bg-blue-800 transition-colors"
-                onClick={() => window.print()}
+                onClick={handlePrintCard}
               >
                 Print Card
               </button>
@@ -378,25 +551,40 @@ const Members: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                  <input required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value={newMember.firstName} onChange={e => setNewMember({...newMember, firstName: e.target.value})} />
+                  <input 
+                    required 
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900" 
+                    value={newMember.firstName} 
+                    onChange={e => setNewMember({...newMember, firstName: e.target.value})} 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                  <input required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value={newMember.lastName} onChange={e => setNewMember({...newMember, lastName: e.target.value})} />
+                  <input 
+                    required 
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900" 
+                    value={newMember.lastName} 
+                    onChange={e => setNewMember({...newMember, lastName: e.target.value})} 
+                  />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-slate-400 font-normal">(Optional)</span></label>
                 <input 
                   type="email" 
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900" 
                   value={newMember.email} 
                   onChange={e => setNewMember({...newMember, email: e.target.value})} 
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
-                <input type="tel" className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
+                <input 
+                    type="tel" 
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900" 
+                    value={newMember.phone} 
+                    onChange={e => setNewMember({...newMember, phone: e.target.value})} 
+                />
               </div>
               <button type="submit" className="w-full py-3 bg-blue-900 text-white rounded-lg font-bold hover:bg-blue-800 mt-4">Create Member</button>
             </form>

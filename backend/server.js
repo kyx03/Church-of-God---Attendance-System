@@ -37,13 +37,11 @@ const seedDatabase = async () => {
             const hash = await bcrypt.hash('password', 10);
             await pool.query(
                 `INSERT INTO users (id, name, username, password_hash, role) VALUES 
-                 ('u1', 'Rev. Thomas', 'pastor', $1, 'pastor'),
                  ('u2', 'Sarah Admin', 'admin', $1, 'admin'),
-                 ('u3', 'Emily Sec', 'secretary', $1, 'secretary'),
                  ('u4', 'Mike Vol', 'volunteer', $1, 'volunteer')`,
                 [hash]
             );
-            console.log('Seeded default users');
+            console.log('Seeded default users (Admin & Volunteer)');
         }
     } catch (e) {
         console.error("Seeding error", e);

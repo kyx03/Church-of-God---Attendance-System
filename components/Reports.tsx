@@ -1,30 +1,119 @@
 
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/mockDb';
-import { Member } from '../types';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Download, Users } from 'lucide-react';
+import { Member, Event, AttendanceRecord } from '../types';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Download, Users, Calendar as CalendarIcon, FileSpreadsheet } from 'lucide-react';
 
 const Reports: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Date Filter State (Default to current year)
+  const today = new Date();
+  const startOfYear = new Date(today.getFullYear(), 0, 1);
+  const [startDate, setStartDate] = useState(startOfYear.toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
+
   useEffect(() => {
-    db.getMembers()
-      .then(m => setMembers(m))
-      .finally(() => setLoading(false));
+    Promise.all([
+      db.getMembers(),
+      db.getEvents(),
+      db.getAttendance()
+    ]).then(([m, e, a]) => {
+      setMembers(m);
+      setEvents(e);
+      setAttendance(a);
+    }).finally(() => setLoading(false));
   }, []);
 
+  // --- Derived Data ---
+
+  // 1. Filtered Events based on Date Range
+  const filteredEvents = events.filter(e => {
+    const d = new Date(e.date);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    return d >= start && d <= end;
+  });
+
+  // 2. Member Status Data (Pie)
   const activeCount = members.filter(m => m.status === 'active').length;
   const inactiveCount = members.filter(m => m.status === 'inactive').length;
-  
-  const data = [
+  const memberStatusData = [
     { name: 'Active', value: activeCount, color: '#16a34a' },
     { name: 'Inactive', value: inactiveCount, color: '#94a3b8' },
   ];
 
+  // 3. Event Status Data (Pie)
+  const eventStatusData = [
+    { name: 'Upcoming', value: filteredEvents.filter(e => e.status === 'upcoming').length, color: '#3b82f6' },
+    { name: 'Completed', value: filteredEvents.filter(e => e.status === 'completed').length, color: '#22c55e' },
+    { name: 'Cancelled', value: filteredEvents.filter(e => e.status === 'cancelled').length, color: '#ef4444' },
+  ].filter(item => item.value > 0);
+
+  // 4. Attendance by Event Type (Bar)
+  const attendanceByTypeData = ['service', 'youth', 'outreach', 'meeting'].map(type => {
+    const typeEvents = filteredEvents.filter(e => e.type === type);
+    const eventIds = typeEvents.map(e => e.id);
+    const count = attendance.filter(a => eventIds.includes(a.eventId)).length;
+    return {
+      name: type.charAt(0).toUpperCase() + type.slice(1),
+      count: count
+    };
+  });
+
+  // 5. Member List with Last Attended Date
+  const processedMembers = members.map(m => {
+    const memberAttendance = attendance.filter(a => a.memberId === m.id);
+    let lastAttendedDate: string | null = null;
+    let lastAttendedTs = 0;
+
+    if (memberAttendance.length > 0) {
+      // Find the latest event date attended
+      memberAttendance.forEach(r => {
+        const evt = events.find(e => e.id === r.eventId);
+        const ts = evt ? new Date(evt.date).getTime() : new Date(r.timestamp).getTime();
+        if (ts > lastAttendedTs) {
+            lastAttendedTs = ts;
+            lastAttendedDate = evt ? evt.date : r.timestamp;
+        }
+      });
+    }
+    return { ...m, lastAttended: lastAttendedDate, lastAttendedTs };
+  }).sort((a, b) => b.lastAttendedTs - a.lastAttendedTs);
+
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['First Name', 'Last Name', 'Status', 'Join Date', 'Last Attended', 'Email', 'Phone'];
+    const rows = processedMembers.map(m => [
+        m.firstName,
+        m.lastName,
+        m.status,
+        m.joinDate,
+        m.lastAttended ? new Date(m.lastAttended).toLocaleDateString() : 'Never',
+        m.email,
+        m.phone
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+        + headers.join(",") + "\n" 
+        + rows.map(e => e.join(",")).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `church_report_${startDate}_to_${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -33,96 +122,213 @@ const Reports: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center print:hidden">
+      {/* Header & Controls */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 print:hidden">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">Member Status Report</h2>
-          <p className="text-slate-500">Generated on {new Date().toLocaleDateString()}</p>
+          <h2 className="text-3xl font-bold text-slate-900">Reports Center</h2>
+          <p className="text-slate-500">Analytics and member insights.</p>
         </div>
-        <button 
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors"
-        >
-            <Download className="w-4 h-4" />
-            Print / Save PDF
-        </button>
+        
+        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+             <div className="flex items-center gap-2 px-2">
+                <CalendarIcon className="w-4 h-4 text-slate-400" />
+                <span className="text-xs font-bold text-slate-500 uppercase">Range:</span>
+             </div>
+             <input 
+                type="date" 
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="border-slate-200 rounded-lg text-sm px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
+             />
+             <span className="text-slate-300 self-center hidden sm:inline">—</span>
+             <input 
+                type="date" 
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="border-slate-200 rounded-lg text-sm px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
+             />
+        </div>
+
+        <div className="flex gap-2 w-full lg:w-auto">
+             <button 
+                onClick={handlePrint}
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm"
+            >
+                <Download className="w-4 h-4" />
+                Print PDF
+            </button>
+            <button 
+                onClick={handleExportCSV}
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors font-medium text-sm"
+            >
+                <FileSpreadsheet className="w-4 h-4" />
+                Export CSV
+            </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-            <h3 className="font-bold text-lg mb-4">Status Distribution</h3>
-            <div className="h-64">
+      {/* Row 1: Pie Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Member Status */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
+            <h3 className="font-bold text-slate-900 mb-2">Member Status</h3>
+            <div className="flex-1 min-h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
-                            data={data}
-                            innerRadius={60}
-                            outerRadius={80}
+                            data={memberStatusData}
+                            innerRadius={50}
+                            outerRadius={70}
                             paddingAngle={5}
                             dataKey="value"
                         >
-                        {data.map((entry, index) => (
+                        {memberStatusData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                         </Pie>
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}} />
+                        <Legend verticalAlign="bottom" height={36}/>
                     </PieChart>
                 </ResponsiveContainer>
             </div>
-            <div className="text-center mt-4 grid grid-cols-2 gap-4">
-                <div className="p-3 bg-green-50 rounded-lg">
-                    <p className="text-xs text-green-600 font-bold uppercase">Active</p>
-                    <p className="text-2xl font-bold text-green-700">{activeCount}</p>
+            <div className="flex justify-center gap-4 text-center mt-2">
+                <div>
+                   <span className="block text-2xl font-bold text-green-600">{activeCount}</span>
+                   <span className="text-xs text-slate-400 font-bold uppercase">Active</span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
-                    <p className="text-xs text-slate-500 font-bold uppercase">Inactive</p>
-                    <p className="text-2xl font-bold text-slate-600">{inactiveCount}</p>
+                <div>
+                   <span className="block text-2xl font-bold text-slate-500">{inactiveCount}</span>
+                   <span className="text-xs text-slate-400 font-bold uppercase">Inactive</span>
                 </div>
             </div>
         </div>
 
+        {/* Event Status */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col">
-             <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-blue-900" />
-                <h3 className="font-bold text-lg">Total Membership</h3>
+            <h3 className="font-bold text-slate-900 mb-2">Event Status</h3>
+            <p className="text-xs text-slate-400 mb-4">In selected range</p>
+            <div className="flex-1 min-h-[200px]">
+                {eventStatusData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={eventStatusData}
+                                innerRadius={50}
+                                outerRadius={70}
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                            {eventStatusData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                            </Pie>
+                            <Tooltip contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}} />
+                            <Legend verticalAlign="bottom" height={36}/>
+                        </PieChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="flex items-center justify-center h-full text-slate-400 text-sm">No events in range</div>
+                )}
+            </div>
+        </div>
+
+        {/* Total Members Card */}
+        <div className="bg-gradient-to-br from-blue-900 to-indigo-900 p-6 rounded-xl shadow-lg shadow-blue-900/20 text-white flex flex-col justify-between">
+             <div>
+                <div className="flex items-center gap-2 mb-2 opacity-80">
+                    <Users className="w-5 h-5" />
+                    <span className="font-medium">Total Membership</span>
+                </div>
+                <p className="text-5xl font-black tracking-tight">{members.length}</p>
              </div>
-             <div className="flex-1 flex items-center justify-center">
-                 <div className="text-center">
-                    <p className="text-6xl font-black text-blue-900">{members.length}</p>
-                    <p className="text-slate-400 mt-2">Registered Profiles</p>
+             <div className="space-y-2">
+                 <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                     <p className="text-xs text-blue-200 uppercase font-bold mb-1">New Members (In Range)</p>
+                     <p className="text-xl font-bold">
+                        {members.filter(m => {
+                            const join = new Date(m.joinDate);
+                            return join >= new Date(startDate) && join <= new Date(endDate);
+                        }).length}
+                     </p>
                  </div>
              </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 bg-slate-50 border-b border-slate-200">
-            <h3 className="font-bold text-slate-700">Detailed Member List</h3>
+      {/* Row 2: Bar Chart */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <div className="mb-6">
+            <h3 className="font-bold text-slate-900 text-lg">Attendance by Event Type</h3>
+            <p className="text-sm text-slate-500">Total attendance counts for the selected period.</p>
         </div>
-        <table className="w-full text-left text-sm">
-            <thead className="bg-white text-slate-500 font-medium border-b border-slate-100">
-                <tr>
-                    <th className="px-6 py-3">Name</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3">Join Date</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {members.map(m => (
-                    <tr key={m.id}>
-                        <td className="px-6 py-3 font-medium text-slate-900">{m.firstName} {m.lastName}</td>
-                        <td className="px-6 py-3">
-                             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${
-                                m.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                {m.status}
-                            </span>
-                        </td>
-                        <td className="px-6 py-3 text-slate-500">{m.joinDate}</td>
+        <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={attendanceByTypeData} margin={{top: 10, right: 30, left: 0, bottom: 0}}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#64748b', fontSize: 12}} 
+                        dy={10}
+                    />
+                    <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#64748b', fontSize: 12}} 
+                    />
+                    <Tooltip 
+                        cursor={{fill: '#f8fafc'}}
+                        contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 10px 15px -3px rgba(0,0,0,0.1)'}}
+                    />
+                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={50} />
+                </BarChart>
+            </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Row 3: Member List */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <h3 className="font-bold text-slate-700">Detailed Member List</h3>
+            <span className="text-xs text-slate-400 font-medium bg-slate-200 px-2 py-1 rounded">Sorted by Last Attended</span>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-white text-slate-500 font-medium border-b border-slate-100">
+                    <tr>
+                        <th className="px-6 py-3">Name</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3">Join Date</th>
+                        <th className="px-6 py-3 text-blue-900 font-semibold bg-blue-50/50">Last Attended</th>
+                        <th className="px-6 py-3 text-right">Contact</th>
                     </tr>
-                ))}
-            </tbody>
-        </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {processedMembers.map(m => (
+                        <tr key={m.id} className="hover:bg-slate-50">
+                            <td className="px-6 py-3 font-medium text-slate-900">{m.firstName} {m.lastName}</td>
+                            <td className="px-6 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                                    m.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                                    }`}>
+                                    {m.status}
+                                </span>
+                            </td>
+                            <td className="px-6 py-3 text-slate-500">{m.joinDate}</td>
+                            <td className="px-6 py-3 font-medium bg-blue-50/30 text-slate-700">
+                                {m.lastAttended ? (
+                                    <span>{new Date(m.lastAttended).toLocaleDateString()}</span>
+                                ) : (
+                                    <span className="text-slate-400 italic">Never</span>
+                                )}
+                            </td>
+                            <td className="px-6 py-3 text-right text-slate-500">{m.phone}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
       </div>
     </div>
   );

@@ -46,10 +46,17 @@ const Kiosk: React.FC = () => {
 
   const startCamera = async () => {
     setScanResult({ status: 'idle', message: '' });
+    if (streamRef.current) {
+        // Camera already running
+        return;
+    }
+
     try {
+      // Check if browser supports mediaDevices
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Camera API not available in this browser context (Secure context required).");
+        throw new Error("Camera API not available in this browser context (Secure HTTPS context required).");
       }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       streamRef.current = stream;
       setCameraActive(true);
@@ -59,9 +66,16 @@ const Kiosk: React.FC = () => {
     } catch (err: any) {
       console.error("Camera error:", err);
       let msg = "Camera access error.";
-      if (err.name === 'NotAllowedError') msg = "Permission denied. Please allow camera access.";
-      if (err.name === 'NotFoundError') msg = "No camera device found.";
-      if (err.name === 'NotReadableError') msg = "Camera is currently in use by another application.";
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          msg = "Permission denied. Please allow camera access in your browser settings.";
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          msg = "No camera device found.";
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          msg = "Camera is currently in use by another application.";
+      } else if (err.message && err.message.includes('Secure context')) {
+          msg = "Camera requires a secure HTTPS connection.";
+      }
+      
       setScanResult({ status: 'error', message: msg });
       setCameraActive(false);
     }
@@ -168,13 +182,23 @@ const Kiosk: React.FC = () => {
       <div className="w-full max-w-lg flex flex-col gap-6 animate-in zoom-in duration-300 relative z-10">
         <div className="relative aspect-square bg-black rounded-3xl overflow-hidden border-4 border-slate-700 shadow-2xl">
           {cameraActive ? (
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            <>
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                {/* Instructions Overlay */}
+                <div className="absolute top-8 left-0 right-0 text-center z-20 pointer-events-none">
+                    <div className="bg-black/50 backdrop-blur-md text-white px-6 py-2 rounded-full inline-block font-medium border border-white/20 shadow-lg text-sm md:text-base">
+                        Position QR code in the frame to check in
+                    </div>
+                </div>
+            </>
           ) : (
              <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4 bg-slate-800 p-6 text-center">
                 <Camera className="w-16 h-16 opacity-50" />
-                <p>{scanResult.status === 'error' ? scanResult.message : 'Starting Camera...'}</p>
+                <p className="text-red-400 font-medium">{scanResult.status === 'error' ? scanResult.message : 'Starting Camera...'}</p>
                 {scanResult.status === 'error' && (
-                    <button onClick={startCamera} className="mt-2 text-blue-400 underline">Retry</button>
+                    <button onClick={startCamera} className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors">
+                        Retry Camera
+                    </button>
                 )}
              </div>
           )}
