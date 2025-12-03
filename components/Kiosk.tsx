@@ -188,9 +188,10 @@ const Kiosk: React.FC = () => {
 
   if (step === 'select') {
     return (
-      <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center">
-        <div className="max-w-4xl w-full">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+      <div className="flex flex-col h-full">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
+            <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h2 className="text-3xl font-bold text-slate-900 mb-1">Kiosk Setup</h2>
                     <p className="text-slate-500">Select an event to start attendance tracking.</p>
@@ -206,7 +207,9 @@ const Kiosk: React.FC = () => {
                     />
                 </div>
             </div>
+        </div>
 
+        <div className="flex-1 max-w-4xl mx-auto w-full p-4 md:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {paginatedEvents.length === 0 ? (
                     <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">

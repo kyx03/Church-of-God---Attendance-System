@@ -79,10 +79,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Hidden on Print */}
       <aside className={`
         fixed md:static inset-y-0 left-0 z-40 w-64 bg-blue-900 text-white flex flex-col shadow-xl 
-        transform transition-transform duration-300 ease-in-out
+        transform transition-transform duration-300 ease-in-out print:hidden
         ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <div className="p-6 border-b border-blue-800 flex justify-between items-center">
@@ -160,9 +160,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Mobile Header */}
-        <div className="md:hidden bg-blue-900 text-white p-4 flex items-center justify-between shadow-md z-20">
+      <div className="flex-1 flex flex-col h-full overflow-hidden print:overflow-visible print:h-auto">
+        {/* Mobile Header - Hidden on Print */}
+        <div className="md:hidden bg-blue-900 text-white p-4 flex items-center justify-between shadow-md z-20 print:hidden">
             <div className="flex items-center gap-3 min-w-0">
                  <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white rounded-md p-0.5 flex-shrink-0" />
                  <div className="min-w-0 flex items-center gap-2">
@@ -179,14 +179,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </button>
         </div>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 max-w-7xl mx-auto w-full">
+        {/* Removed padding here to allow sticky headers to span full width */}
+        <main className="flex-1 overflow-y-auto w-full bg-slate-50 print:p-0 print:overflow-visible scroll-smooth">
           {children}
         </main>
       </div>
 
       {/* Slogan Edit Modal */}
       {showSloganModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
             <button onClick={() => setShowSloganModal(false)} className="absolute right-4 top-4 text-slate-400"><X className="w-5 h-5"/></button>
             <h3 className="text-lg font-bold mb-4 text-slate-900">Edit</h3>
@@ -205,7 +206,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Profile Modal */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
             <button 
               onClick={() => setShowProfileModal(false)}

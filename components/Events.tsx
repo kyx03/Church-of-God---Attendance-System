@@ -210,16 +210,16 @@ const Events: React.FC = () => {
   };
 
   const calculateBatchAbsentees = () => {
-      const start = new Date(notifyState.startDate);
-      const end = new Date(notifyState.endDate);
-      end.setHours(23, 59, 59);
+      // Use local day interpretation to ensure events on the same day are included regardless of timezone
+      const start = new Date(notifyState.startDate + 'T00:00:00');
+      const end = new Date(notifyState.endDate + 'T23:59:59');
 
       const eventsInRange = events.filter(e => {
           const d = new Date(e.date);
           const inDateRange = d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
           
-          const matchesName = notifyState.filterName 
-            ? e.name.toLowerCase().includes(notifyState.filterName.toLowerCase()) 
+          const matchesName = notifyState.filterName && notifyState.filterName.trim() !== ''
+            ? e.name.toLowerCase().includes(notifyState.filterName.toLowerCase().trim()) 
             : true;
             
           const matchesType = notifyState.filterType !== 'all' 
@@ -304,232 +304,237 @@ const Events: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900">Events Schedule</h2>
-          <p className="text-slate-500">Manage church services and gatherings.</p>
-        </div>
-        
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-             {/* Search Bar */}
-             <div className="relative flex-1 md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
-                    type="text" 
-                    placeholder="Search events..." 
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-             </div>
-
-            {canEdit && (
-                <div className="flex gap-2">
-                    <button 
-                        onClick={openBatchNotifyModal}
-                        className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center whitespace-nowrap"
-                    >
-                        <MailWarning className="w-4 h-4" />
-                        <span className="hidden lg:inline">Absentee Check</span>
-                    </button>
-                    <button 
-                        onClick={openAddModal}
-                        className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors flex-1 md:flex-none justify-center whitespace-nowrap"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Schedule Event
-                    </button>
+    <div className="flex flex-col h-full relative">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+            <h2 className="text-3xl font-bold text-slate-900">Events Schedule</h2>
+            <p className="text-slate-500">Manage church services and gatherings.</p>
+            </div>
+            
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                {/* Search Bar */}
+                <div className="relative flex-1 md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Search events..." 
+                        className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
-            )}
+
+                {canEdit && (
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={openBatchNotifyModal}
+                            className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center whitespace-nowrap shadow-sm"
+                        >
+                            <MailWarning className="w-4 h-4" />
+                            <span className="hidden lg:inline">Absentee Check</span>
+                        </button>
+                        <button 
+                            onClick={openAddModal}
+                            className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors flex-1 md:flex-none justify-center whitespace-nowrap shadow-md shadow-blue-900/10"
+                        >
+                            <Plus className="w-5 h-5" />
+                            Schedule Event
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
       </div>
 
-      {showForm && canEdit && (
-        <div className="bg-white rounded-xl shadow-lg border border-blue-100 overflow-hidden animate-in slide-in-from-top-4">
-          <div className="bg-blue-900 px-6 py-4 flex justify-between items-center text-white">
-             <h3 className="font-bold flex items-center gap-2 text-lg"><Calendar className="w-5 h-5" /> {editingId ? 'Edit Event' : 'Schedule New Event'}</h3>
-             <button onClick={() => setShowForm(false)} className="text-blue-200 hover:text-white bg-blue-800 hover:bg-blue-700 p-1 rounded-full transition-colors"><X className="w-5 h-5" /></button>
-          </div>
-          <form onSubmit={handleSubmit} className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <div className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Title of Event <span className="text-red-500">*</span></label>
-                        <input required type="text" placeholder="e.g. Sunday Morning Worship" className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.name || ''} onChange={e => setNewEvent({...newEvent, name: e.target.value})} />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Event Type</label>
-                        {isCustomType ? (
-                            <div className="flex gap-2">
-                                <input autoFocus type="text" placeholder="Enter custom type..." className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 shadow-sm" value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value as any})} />
-                                <button type="button" onClick={() => setIsCustomType(false)} className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"><X className="w-4 h-4" /></button>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <select className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white text-slate-900 shadow-sm appearance-none" value={newEvent.type} onChange={e => {
-                                        if (e.target.value === 'custom') { setIsCustomType(true); setNewEvent({...newEvent, type: '' as any}); } else { setNewEvent({...newEvent, type: e.target.value as any}); }
-                                    }}>
-                                    <option value="service">Service</option>
-                                    <option value="youth">Youth</option>
-                                    <option value="outreach">Outreach</option>
-                                    <option value="meeting">Meeting</option>
-                                    <option value="custom">Other / Custom...</option>
-                                </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                            </div>
-                        )}
-                    </div>
-                 </div>
-                 <div className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Date & Time <span className="text-red-500">*</span></label>
-                        <div className="relative group">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 pointer-events-none z-10"><Calendar className="w-5 h-5" /></div>
-                            <input required type="datetime-local" className="w-full pl-14 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-slate-900 shadow-sm relative z-0 font-medium" value={newEvent.date || ''} onChange={e => setNewEvent({...newEvent, date: e.target.value})} style={{ colorScheme: 'light' }} />
+      <div className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 space-y-8">
+        {showForm && canEdit && (
+            <div className="bg-white rounded-xl shadow-lg border border-blue-100 overflow-hidden animate-in slide-in-from-top-4">
+            <div className="bg-blue-900 px-6 py-4 flex justify-between items-center text-white">
+                <h3 className="font-bold flex items-center gap-2 text-lg"><Calendar className="w-5 h-5" /> {editingId ? 'Edit Event' : 'Schedule New Event'}</h3>
+                <button onClick={() => setShowForm(false)} className="text-blue-200 hover:text-white bg-blue-800 hover:bg-blue-700 p-1 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Title of Event <span className="text-red-500">*</span></label>
+                            <input required type="text" placeholder="e.g. Sunday Morning Worship" className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.name || ''} onChange={e => setNewEvent({...newEvent, name: e.target.value})} />
                         </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Location <span className="text-blue-500 text-xs font-normal">(Optional)</span></label>
-                        <div className="relative">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                            <input type="text" placeholder="e.g. Main Sanctuary" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.location || ''} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
-                        </div>
-                    </div>
-                 </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
-                <button type="button" onClick={() => setShowForm(false)} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-                <button type="submit" className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors shadow-lg shadow-blue-900/20 flex items-center gap-2"><CheckCircle2 className="w-5 h-5" />{editingId ? 'Save Changes' : 'Create Event'}</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Events Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sortedEvents.length === 0 ? (
-            <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
-                <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 font-medium">No events scheduled.</p>
-                {searchTerm && <p className="text-sm text-slate-400 mt-1">Try adjusting your search.</p>}
-                {canEdit && !searchTerm && <p className="text-sm text-slate-400">Click "Schedule Event" to get started.</p>}
-            </div>
-        ) : paginatedEvents.map(event => {
-          const isPast = new Date(event.date) < new Date();
-          const cardStyle = getStatusStyles(event.status, isPast);
-          const attendeesCount = attendance.filter(a => a.eventId === event.id).length;
-          
-          return (
-            <div key={event.id} className={`relative rounded-xl p-6 transition-all flex flex-col h-full border-l-4 group ${cardStyle}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 rounded-lg bg-white/60 border border-slate-200 shadow-sm">
-                  <Calendar className="w-6 h-6 text-slate-700" />
-                </div>
-                
-                <div className="flex items-center gap-2">
-                    {canEdit ? (
-                        <div className="relative status-dropdown-container">
-                            <button onClick={() => setActiveStatusId(activeStatusId === event.id ? null : event.id)} className={`flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border transition-all ${activeStatusId === event.id ? 'ring-2 ring-blue-200 bg-white border-blue-200' : 'border-transparent hover:bg-white/50 hover:border-slate-200'}`}>
-                                {getStatusBadge(event.status, isPast)}
-                                <ChevronDown className="w-3 h-3 text-slate-400 ml-1" />
-                            </button>
-                            {activeStatusId === event.id && (
-                                <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 p-1.5 z-20 animate-in fade-in zoom-in-95 duration-100">
-                                    <div className="text-[10px] uppercase font-bold text-slate-400 px-2 py-1 mb-1">Set Status</div>
-                                    {['upcoming', 'in-progress', 'completed', 'cancelled'].map(s => (
-                                        <button key={s} onClick={() => handleStatusUpdate(event.id, s)} className={`w-full text-left px-3 py-2 text-xs font-bold uppercase rounded-lg flex items-center justify-between ${event.status === s ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-                                            {s} {event.status === s && <Check className="w-3 h-3" />}
-                                        </button>
-                                    ))}
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Event Type</label>
+                            {isCustomType ? (
+                                <div className="flex gap-2">
+                                    <input autoFocus type="text" placeholder="Enter custom type..." className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 shadow-sm" value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value as any})} />
+                                    <button type="button" onClick={() => setIsCustomType(false)} className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"><X className="w-4 h-4" /></button>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <select className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white text-slate-900 shadow-sm appearance-none" value={newEvent.type} onChange={e => {
+                                            if (e.target.value === 'custom') { setIsCustomType(true); setNewEvent({...newEvent, type: '' as any}); } else { setNewEvent({...newEvent, type: e.target.value as any}); }
+                                        }}>
+                                        <option value="service">Service</option>
+                                        <option value="youth">Youth</option>
+                                        <option value="outreach">Outreach</option>
+                                        <option value="meeting">Meeting</option>
+                                        <option value="custom">Other / Custom...</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <div className="px-3 py-1.5 rounded-full bg-white/50 border border-slate-100">{getStatusBadge(event.status, isPast)}</div>
-                    )}
-                    
-                    {canEdit && (
-                      <div className="flex items-center gap-1">
-                         <button onClick={() => openEditModal(event)} className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-2 transition-colors rounded-lg" title="Edit Event"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => setDeleteEventTarget(event)} className="text-red-600 bg-red-50 hover:bg-red-100 p-2 transition-colors rounded-lg" title="Delete Event"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    )}
-                </div>
-              </div>
-              
-              <h3 className="text-xl font-bold mb-2 text-slate-900 line-clamp-2">{event.name}</h3>
-              <div className="mb-4">
-                 <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider bg-slate-100/80 px-2 py-1 rounded border border-slate-200">{event.type}</span>
-              </div>
-              
-              {event.status === 'cancelled' && event.cancellationReason && (
-                 <div className="mb-4 p-3 bg-red-50 rounded-lg text-xs text-red-800 border border-red-100">
-                    <span className="font-bold block mb-1">Cancellation Reason:</span> {event.cancellationReason}
-                 </div>
-              )}
-
-              <div className="space-y-3 text-sm text-slate-600 flex-1">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100 shadow-sm text-slate-400 shrink-0"><Clock className="w-4 h-4" /></div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{new Date(event.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                    <p className="text-xs text-slate-500">{new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100 shadow-sm text-slate-400 shrink-0"><MapPin className="w-4 h-4" /></div>
-                  <span className="font-medium">{event.location || 'Main Sanctuary'}</span>
-                </div>
-              </div>
-
-              <div className="mt-5 pt-4 border-t border-slate-200/50 flex items-center justify-between text-sm">
-                 <button onClick={() => setViewAttendeesEvent(event)} className="flex items-center gap-2 text-slate-600 hover:text-blue-700 font-medium transition-colors group/attendees">
-                    <div className="flex -space-x-2">
-                         {[...Array(Math.min(3, attendeesCount))].map((_, i) => (
-                             <div key={i} className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500"><Users className="w-3 h-3" /></div>
-                         ))}
-                         {attendeesCount > 3 && (
-                             <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-blue-600">+{attendeesCount - 3}</div>
-                         )}
                     </div>
-                    <span className="group-hover/attendees:underline">{attendeesCount} Attended</span>
-                 </button>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {(!isPast && event.status !== 'cancelled') && (
-                    <button onClick={() => setCheckInQrEvent(event)} className="w-full py-2.5 px-3 text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 font-bold hover:shadow-lg hover:-translate-y-0.5"><QrCode className="w-4 h-4" /> Self Check-in QR</button>
-                )}
-                {(isPast && canEdit && event.status !== 'cancelled') && (
-                  <button onClick={() => openNotifyModal(event)} className="w-full py-2.5 px-3 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center justify-center gap-2 transition-colors border border-amber-200 font-bold"><MailWarning className="w-4 h-4" /> Notify Absentees</button>
-                )}
-              </div>
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Date & Time <span className="text-red-500">*</span></label>
+                            <div className="relative group">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 pointer-events-none z-10"><Calendar className="w-5 h-5" /></div>
+                                <input required type="datetime-local" className="w-full pl-14 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-slate-900 shadow-sm relative z-0 font-medium" value={newEvent.date || ''} onChange={e => setNewEvent({...newEvent, date: e.target.value})} style={{ colorScheme: 'light' }} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Location <span className="text-blue-500 text-xs font-normal">(Optional)</span></label>
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                <input type="text" placeholder="e.g. Main Sanctuary" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.location || ''} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
+                    <button type="button" onClick={() => setShowForm(false)} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                    <button type="submit" className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors shadow-lg shadow-blue-900/20 flex items-center gap-2"><CheckCircle2 className="w-5 h-5" />{editingId ? 'Save Changes' : 'Create Event'}</button>
+                </div>
+            </form>
             </div>
-          );
-        })}
-      </div>
+        )}
 
-       {/* Pagination Controls */}
-       {sortedEvents.length > ITEMS_PER_PAGE && (
-          <div className="flex justify-center items-center mt-8 gap-4">
-              <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              >
-                  <ChevronLeft className="w-5 h-5" />
-              </button>
-              <span className="text-sm font-medium text-slate-600">Page {currentPage} of {totalPages}</span>
-              <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              >
-                  <ChevronRight className="w-5 h-5" />
-              </button>
-          </div>
-       )}
+        {/* Events Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sortedEvents.length === 0 ? (
+                <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+                    <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No events scheduled.</p>
+                    {searchTerm && <p className="text-sm text-slate-400 mt-1">Try adjusting your search.</p>}
+                    {canEdit && !searchTerm && <p className="text-sm text-slate-400">Click "Schedule Event" to get started.</p>}
+                </div>
+            ) : paginatedEvents.map(event => {
+            const isPast = new Date(event.date) < new Date();
+            const cardStyle = getStatusStyles(event.status, isPast);
+            const attendeesCount = attendance.filter(a => a.eventId === event.id).length;
+            
+            return (
+                <div key={event.id} className={`relative rounded-xl p-6 transition-all flex flex-col h-full border-l-4 group ${cardStyle}`}>
+                <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 rounded-lg bg-white/60 border border-slate-200 shadow-sm">
+                    <Calendar className="w-6 h-6 text-slate-700" />
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                        {canEdit ? (
+                            <div className="relative status-dropdown-container">
+                                <button onClick={() => setActiveStatusId(activeStatusId === event.id ? null : event.id)} className={`flex items-center gap-1 text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-full border transition-all ${activeStatusId === event.id ? 'ring-2 ring-blue-200 bg-white border-blue-200' : 'border-transparent hover:bg-white/50 hover:border-slate-200'}`}>
+                                    {getStatusBadge(event.status, isPast)}
+                                    <ChevronDown className="w-3 h-3 text-slate-400 ml-1" />
+                                </button>
+                                {activeStatusId === event.id && (
+                                    <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 p-1.5 z-20 animate-in fade-in zoom-in-95 duration-100">
+                                        <div className="text-[10px] uppercase font-bold text-slate-400 px-2 py-1 mb-1">Set Status</div>
+                                        {['upcoming', 'in-progress', 'completed', 'cancelled'].map(s => (
+                                            <button key={s} onClick={() => handleStatusUpdate(event.id, s)} className={`w-full text-left px-3 py-2 text-xs font-bold uppercase rounded-lg flex items-center justify-between ${event.status === s ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                                {s} {event.status === s && <Check className="w-3 h-3" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="px-3 py-1.5 rounded-full bg-white/50 border border-slate-100">{getStatusBadge(event.status, isPast)}</div>
+                        )}
+                        
+                        {canEdit && (
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => openEditModal(event)} className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-2 transition-colors rounded-lg" title="Edit Event"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => setDeleteEventTarget(event)} className="text-red-600 bg-red-50 hover:bg-red-100 p-2 transition-colors rounded-lg" title="Delete Event"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                        )}
+                    </div>
+                </div>
+                
+                <h3 className="text-xl font-bold mb-2 text-slate-900 line-clamp-2">{event.name}</h3>
+                <div className="mb-4">
+                    <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider bg-slate-100/80 px-2 py-1 rounded border border-slate-200">{event.type}</span>
+                </div>
+                
+                {event.status === 'cancelled' && event.cancellationReason && (
+                    <div className="mb-4 p-3 bg-red-50 rounded-lg text-xs text-red-800 border border-red-100">
+                        <span className="font-bold block mb-1">Cancellation Reason:</span> {event.cancellationReason}
+                    </div>
+                )}
+
+                <div className="space-y-3 text-sm text-slate-600 flex-1">
+                    <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100 shadow-sm text-slate-400 shrink-0"><Clock className="w-4 h-4" /></div>
+                    <div>
+                        <p className="font-semibold text-slate-900">{new Date(event.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        <p className="text-xs text-slate-500">{new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</p>
+                    </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100 shadow-sm text-slate-400 shrink-0"><MapPin className="w-4 h-4" /></div>
+                    <span className="font-medium">{event.location || 'Main Sanctuary'}</span>
+                    </div>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-slate-200/50 flex items-center justify-between text-sm">
+                    <button onClick={() => setViewAttendeesEvent(event)} className="flex items-center gap-2 text-slate-600 hover:text-blue-700 font-medium transition-colors group/attendees">
+                        <div className="flex -space-x-2">
+                            {[...Array(Math.min(3, attendeesCount))].map((_, i) => (
+                                <div key={i} className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500"><Users className="w-3 h-3" /></div>
+                            ))}
+                            {attendeesCount > 3 && (
+                                <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-blue-600">+{attendeesCount - 3}</div>
+                            )}
+                        </div>
+                        <span className="group-hover/attendees:underline">{attendeesCount} Attended</span>
+                    </button>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                    {(!isPast && event.status !== 'cancelled') && (
+                        <button onClick={() => setCheckInQrEvent(event)} className="w-full py-2.5 px-3 text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 font-bold hover:shadow-lg hover:-translate-y-0.5"><QrCode className="w-4 h-4" /> Self Check-in QR</button>
+                    )}
+                    {(isPast && canEdit && event.status !== 'cancelled') && (
+                    <button onClick={() => openNotifyModal(event)} className="w-full py-2.5 px-3 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center justify-center gap-2 transition-colors border border-amber-200 font-bold"><MailWarning className="w-4 h-4" /> Notify Absentees</button>
+                    )}
+                </div>
+                </div>
+            );
+            })}
+        </div>
+
+        {/* Pagination Controls */}
+        {sortedEvents.length > ITEMS_PER_PAGE && (
+            <div className="flex justify-center items-center mt-8 gap-4">
+                <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-sm font-medium text-slate-600">Page {currentPage} of {totalPages}</span>
+                <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </button>
+            </div>
+        )}
+      </div>
 
        {/* Modals... (QR, Attendees, Delete, Notify are same as before) */}
        {checkInQrEvent && (

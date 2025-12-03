@@ -245,7 +245,7 @@ const Members: React.FC = () => {
 
   const handleStatusToggle = async (member: Member) => {
     const newStatus = member.status === 'active' ? 'inactive' : 'active';
-    setMembers(members.map(m => m.id === member.id ? { ...m, status: newStatus } : m));
+    setMembers(prev => prev.map(m => m.id === member.id ? { ...m, status: newStatus } : m));
     setStatusMsg(`${member.firstName} is now ${newStatus}.`);
     setTimeout(() => setStatusMsg(null), 3000);
     await db.updateMember(member.id, { status: newStatus });
@@ -257,13 +257,11 @@ const Members: React.FC = () => {
 
       if (!confirm(`Are you sure you want to set ${ids.length} members to ${newStatus}?`)) return;
 
-      // Optimistic Update
       setMembers(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: newStatus } : m));
-      setSelectedIds(new Set()); // Clear selection
+      setSelectedIds(new Set()); 
       setStatusMsg(`Updated ${ids.length} members to ${newStatus}.`);
       setTimeout(() => setStatusMsg(null), 3000);
 
-      // DB Update with Promise.all for robustness
       await Promise.all(ids.map(id => db.updateMember(id, { status: newStatus })));
       loadData();
   };
@@ -397,7 +395,7 @@ const Members: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 relative">
+    <div className="flex flex-col h-full relative">
       {statusMsg && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-800 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in slide-in-from-bottom-4 fade-in">
            <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -405,199 +403,203 @@ const Members: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-        <h2 className="text-3xl font-bold text-slate-900">Members</h2>
-        {canEdit && (
-          <div className="flex flex-wrap gap-2 w-full xl:w-auto">
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
-            <button 
-              onClick={() => handlePrint(null)}
-              className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap"
-            >
-              <Printer className="w-5 h-5" />
-              <span>{selectedIds.size > 0 ? `Print Selected (${selectedIds.size})` : 'Print Visible IDs'}</span>
-            </button>
-            <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap">
-              <FileUp className="w-5 h-5" /> <span className="hidden sm:inline">Import</span>
-            </button>
-            <button onClick={openAddModal} className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap">
-              <Plus className="w-5 h-5" /> <span>Add Member</span>
-            </button>
-          </div>
-        )}
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
+        <div className="max-w-7xl mx-auto flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+            <h2 className="text-3xl font-bold text-slate-900">Members</h2>
+            {canEdit && (
+            <div className="flex flex-wrap gap-2 w-full xl:w-auto">
+                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+                <button 
+                onClick={() => handlePrint(null)}
+                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm"
+                >
+                <Printer className="w-5 h-5" />
+                <span>{selectedIds.size > 0 ? `Print Selected (${selectedIds.size})` : 'Print All IDs'}</span>
+                </button>
+                <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm">
+                <FileUp className="w-5 h-5" /> <span className="hidden sm:inline">Import</span>
+                </button>
+                <button onClick={openAddModal} className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-md shadow-blue-900/10">
+                <Plus className="w-5 h-5" /> <span>Add Member</span>
+                </button>
+            </div>
+            )}
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {/* Filters */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-          <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1">
-            <div className="relative w-full md:max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
-                  type="text" placeholder="Search name, email, or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
-                />
-            </div>
-             <div className="relative w-full md:w-auto min-w-[180px]">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                <select value={ministryFilter} onChange={(e) => setMinistryFilter(e.target.value)} className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-900 appearance-none cursor-pointer">
-                    <option value="all">All Ministries</option>
-                    {uniqueMinistries.filter(m => m !== 'None').map(m => (<option key={m} value={m}>{m}</option>))}
-                    <option value="None">None</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
-            <div className="relative w-full md:w-auto min-w-[200px]">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                <select value={attendanceFilter} onChange={(e) => setAttendanceFilter(e.target.value as any)} className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-900 appearance-none cursor-pointer">
-                    <option value="all">All History</option>
-                    <option value="last_service">Attended Last Service</option>
-                    <option value="last_30_days">Attended in Last 30 Days</option>
-                    <option value="last_90_days">Attended in Last 90 Days</option>
-                    <option value="never">Never Attended</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-          <div className="flex bg-slate-200/60 p-1 rounded-lg shrink-0 w-full lg:w-auto overflow-x-auto">
-            {['all', 'active', 'inactive'].map((status) => (
-              <button key={status} onClick={() => setStatusFilter(status as any)} className={`flex-1 lg:flex-none px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all duration-200 whitespace-nowrap ${statusFilter === status ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
-                {status}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Bulk Actions Bar */}
-        {selectedIds.size > 0 && canEdit && (
-            <div className="bg-blue-50 px-6 py-2 border-b border-blue-100 flex items-center justify-between animate-in slide-in-from-top-2">
-                <span className="text-sm font-bold text-blue-800">{selectedIds.size} selected</span>
-                <div className="flex gap-2">
-                    <button onClick={() => handleBulkStatusUpdate('active')} className="text-xs px-3 py-1.5 bg-white border border-blue-200 rounded text-blue-700 font-semibold hover:bg-blue-100 flex items-center gap-1">
-                        <Activity className="w-3 h-3" /> Set Active
-                    </button>
-                    <button onClick={() => handleBulkStatusUpdate('inactive')} className="text-xs px-3 py-1.5 bg-white border border-blue-200 rounded text-slate-600 font-semibold hover:bg-slate-100 flex items-center gap-1">
-                        <Ban className="w-3 h-3" /> Set Inactive
-                    </button>
+      <div className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Filters */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+            <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1">
+                <div className="relative w-full md:max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input 
+                    type="text" placeholder="Search name, email, or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
+                    />
+                </div>
+                <div className="relative w-full md:w-auto min-w-[180px]">
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <select value={ministryFilter} onChange={(e) => setMinistryFilter(e.target.value)} className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-900 appearance-none cursor-pointer">
+                        <option value="all">All Ministries</option>
+                        {uniqueMinistries.filter(m => m !== 'None').map(m => (<option key={m} value={m}>{m}</option>))}
+                        <option value="None">None</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+                <div className="relative w-full md:w-auto min-w-[200px]">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <select value={attendanceFilter} onChange={(e) => setAttendanceFilter(e.target.value as any)} className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-900 appearance-none cursor-pointer">
+                        <option value="all">All History</option>
+                        <option value="last_service">Attended Last Service</option>
+                        <option value="last_30_days">Attended in Last 30 Days</option>
+                        <option value="last_90_days">Attended in Last 90 Days</option>
+                        <option value="never">Never Attended</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
             </div>
-        )}
+            <div className="flex bg-slate-200/60 p-1 rounded-lg shrink-0 w-full lg:w-auto overflow-x-auto">
+                {['all', 'active', 'inactive'].map((status) => (
+                <button key={status} onClick={() => setStatusFilter(status as any)} className={`flex-1 lg:flex-none px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all duration-200 whitespace-nowrap ${statusFilter === status ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
+                    {status}
+                </button>
+                ))}
+            </div>
+            </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto min-h-[300px]">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
-              <tr>
-                <th className="px-4 py-4 w-10 text-center">
-                    <button onClick={toggleSelectAll} className="flex items-center justify-center text-slate-400 hover:text-blue-600">
-                        {paginatedMembers.length > 0 && paginatedMembers.every(m => selectedIds.has(m.id)) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5" />}
-                    </button>
-                </th>
-                <th className="px-6 py-4">Name & ID</th>
-                <th className="px-6 py-4 hidden md:table-cell">Contact</th>
-                <th className="px-6 py-4">Ministry</th>
-                <th className="px-6 py-4 hidden sm:table-cell">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {paginatedMembers.map(member => {
-                const isSelected = selectedIds.has(member.id);
-                return (
-                <tr key={member.id} className={`transition-colors ${isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-slate-50'}`}>
-                  <td className="px-4 py-4 text-center">
-                      <button onClick={() => toggleSelection(member.id)} className="flex items-center justify-center text-slate-300 hover:text-blue-500">
-                          {isSelected ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5" />}
-                      </button>
-                  </td>
-                  <td className="px-6 py-4 cursor-pointer group" onClick={() => setHistoryMember(member)}>
-                    <div className="font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">{member.firstName} {member.lastName}</div>
-                    <div className="text-slate-400 text-xs font-mono mt-0.5">{member.id}</div>
-                    <div className="text-slate-500 text-xs sm:hidden mt-1">{member.email}</div>
-                  </td>
-                  <td className="px-6 py-4 hidden md:table-cell text-slate-600">
-                    <div className="flex items-center gap-2"><Mail className="w-3 h-3" /> {member.email || <span className="text-slate-400 italic">No email</span>}</div>
-                    <div className="flex items-center gap-2 mt-1"><Phone className="w-3 h-3" /> {member.phone}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                      {member.ministry && member.ministry !== 'None' ? (
-                          <span className="inline-flex px-2 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">{member.ministry}</span>
-                      ) : <span className="text-slate-400 text-xs italic">None</span>}
-                  </td>
-                  <td className="px-6 py-4 hidden sm:table-cell">
-                    <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{member.status}</span>
-                        {canEdit && (
-                             <button onClick={() => handleStatusToggle(member)} className={`w-8 h-4 rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 ${member.status === 'active' ? 'bg-blue-600' : 'bg-slate-300'}`} title={`Mark as ${member.status === 'active' ? 'inactive' : 'active'}`}>
-                                <div className={`w-3 h-3 bg-white rounded-full shadow-sm transform transition-transform ${member.status === 'active' ? 'translate-x-4' : 'translate-x-0'}`} />
-                            </button>
-                        )}
+            {/* Bulk Actions Bar */}
+            {selectedIds.size > 0 && canEdit && (
+                <div className="bg-blue-50 px-6 py-2 border-b border-blue-100 flex items-center justify-between animate-in slide-in-from-top-2">
+                    <span className="text-sm font-bold text-blue-800">{selectedIds.size} selected</span>
+                    <div className="flex gap-2">
+                        <button onClick={() => handleBulkStatusUpdate('active')} className="text-xs px-3 py-1.5 bg-white border border-blue-200 rounded text-blue-700 font-semibold hover:bg-blue-100 flex items-center gap-1">
+                            <Activity className="w-3 h-3" /> Set Active
+                        </button>
+                        <button onClick={() => handleBulkStatusUpdate('inactive')} className="text-xs px-3 py-1.5 bg-white border border-blue-200 rounded text-slate-600 font-semibold hover:bg-slate-100 flex items-center gap-1">
+                            <Ban className="w-3 h-3" /> Set Inactive
+                        </button>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => setHistoryMember(member)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View History"><History className="w-4 h-4" /></button>
-                        <button onClick={() => setSelectedMember(member)} className="text-blue-700 hover:text-blue-900 font-medium text-xs px-2 py-1 bg-blue-50 rounded border border-blue-100">QR</button>
-                        {canEdit && (
-                            <>
-                                <button onClick={() => openEditModal(member)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Member"><Edit2 className="w-4 h-4" /></button>
-                                <button onClick={() => setDeleteMemberTarget(member)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Member"><Trash2 className="w-4 h-4" /></button>
-                            </>
-                        )}
-                    </div>
-                  </td>
+                </div>
+            )}
+
+            {/* Table */}
+            <div className="overflow-x-auto min-h-[300px]">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
+                <tr>
+                    <th className="px-4 py-4 w-10 text-center">
+                        <button onClick={toggleSelectAll} className="flex items-center justify-center text-slate-400 hover:text-blue-600">
+                            {paginatedMembers.length > 0 && paginatedMembers.every(m => selectedIds.has(m.id)) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5" />}
+                        </button>
+                    </th>
+                    <th className="px-6 py-4">Name & ID</th>
+                    <th className="px-6 py-4 hidden md:table-cell">Contact</th>
+                    <th className="px-6 py-4">Ministry</th>
+                    <th className="px-6 py-4 hidden sm:table-cell">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
-              )})}
-            </tbody>
-          </table>
-          {filteredMembers.length === 0 && <div className="p-8 text-center text-slate-500">No members found matching your search or filter.</div>}
-        </div>
-
-        {/* Pagination Footer */}
-        {filteredMembers.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-                <span className="text-xs text-slate-500">
-                    Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredMembers.length)} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredMembers.length)} of {filteredMembers.length} members
-                </span>
-                <div className="flex gap-1">
-                    <button 
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
-                    >
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                         let p = i + 1;
-                         if (totalPages > 5 && currentPage > 3) {
-                             p = currentPage - 2 + i;
-                             if (p > totalPages) p = totalPages - (4 - i);
-                         }
-                         
-                         return (
-                            <button
-                                key={p}
-                                onClick={() => setCurrentPage(p)}
-                                className={`w-7 h-7 rounded text-xs font-medium ${currentPage === p ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
-                            >
-                                {p}
-                            </button>
-                         );
-                    })}
-                    <button 
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
-                    >
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                {paginatedMembers.map(member => {
+                    const isSelected = selectedIds.has(member.id);
+                    return (
+                    <tr key={member.id} className={`transition-colors ${isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-slate-50'}`}>
+                    <td className="px-4 py-4 text-center">
+                        <button onClick={() => toggleSelection(member.id)} className="flex items-center justify-center text-slate-300 hover:text-blue-500">
+                            {isSelected ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5" />}
+                        </button>
+                    </td>
+                    <td className="px-6 py-4 cursor-pointer group" onClick={() => setHistoryMember(member)}>
+                        <div className="font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">{member.firstName} {member.lastName}</div>
+                        <div className="text-slate-400 text-xs font-mono mt-0.5">{member.id}</div>
+                        <div className="text-slate-500 text-xs sm:hidden mt-1">{member.email}</div>
+                    </td>
+                    <td className="px-6 py-4 hidden md:table-cell text-slate-600">
+                        <div className="flex items-center gap-2"><Mail className="w-3 h-3" /> {member.email || <span className="text-slate-400 italic">No email</span>}</div>
+                        <div className="flex items-center gap-2 mt-1"><Phone className="w-3 h-3" /> {member.phone}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                        {member.ministry && member.ministry !== 'None' ? (
+                            <span className="inline-flex px-2 py-1 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">{member.ministry}</span>
+                        ) : <span className="text-slate-400 text-xs italic">None</span>}
+                    </td>
+                    <td className="px-6 py-4 hidden sm:table-cell">
+                        <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{member.status}</span>
+                            {canEdit && (
+                                <button onClick={() => handleStatusToggle(member)} className={`w-8 h-4 rounded-full p-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 ${member.status === 'active' ? 'bg-blue-600' : 'bg-slate-300'}`} title={`Mark as ${member.status === 'active' ? 'inactive' : 'active'}`}>
+                                    <div className={`w-3 h-3 bg-white rounded-full shadow-sm transform transition-transform ${member.status === 'active' ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </button>
+                            )}
+                        </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => setHistoryMember(member)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View History"><History className="w-4 h-4" /></button>
+                            <button onClick={() => setSelectedMember(member)} className="text-blue-700 hover:text-blue-900 font-medium text-xs px-2 py-1 bg-blue-50 rounded border border-blue-100">QR</button>
+                            {canEdit && (
+                                <>
+                                    <button onClick={() => openEditModal(member)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Member"><Edit2 className="w-4 h-4" /></button>
+                                    <button onClick={() => setDeleteMemberTarget(member)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Member"><Trash2 className="w-4 h-4" /></button>
+                                </>
+                            )}
+                        </div>
+                    </td>
+                    </tr>
+                )})}
+                </tbody>
+            </table>
+            {filteredMembers.length === 0 && <div className="p-8 text-center text-slate-500">No members found matching your search or filter.</div>}
             </div>
-        )}
+
+            {/* Pagination Footer */}
+            {filteredMembers.length > 0 && (
+                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">
+                        Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredMembers.length)} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredMembers.length)} of {filteredMembers.length} members
+                    </span>
+                    <div className="flex gap-1">
+                        <button 
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let p = i + 1;
+                            if (totalPages > 5 && currentPage > 3) {
+                                p = currentPage - 2 + i;
+                                if (p > totalPages) p = totalPages - (4 - i);
+                            }
+                            
+                            return (
+                                <button
+                                    key={p}
+                                    onClick={() => setCurrentPage(p)}
+                                    className={`w-7 h-7 rounded text-xs font-medium ${currentPage === p ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                    {p}
+                                </button>
+                            );
+                        })}
+                        <button 
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
       </div>
 
-      {/* Modals are unchanged from previous version... */}
+      {/* Modals ... (keep existing modals as they are) */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
