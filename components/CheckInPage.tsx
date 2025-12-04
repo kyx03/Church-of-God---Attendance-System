@@ -76,8 +76,8 @@ const CheckInPage: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
        <div className="bg-white max-w-md w-full rounded-2xl shadow-xl overflow-hidden">
           <div className="bg-blue-900 p-6 text-center">
-             <div className="bg-white/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-                <UserCheck className="w-8 h-8 text-white" />
+             <div className="bg-white p-3 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
              </div>
              <h1 className="text-xl font-bold text-white mb-1">Self Check-In</h1>
              <p className="text-blue-200 text-sm">{event.name}</p>

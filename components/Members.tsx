@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, FileUp, Edit2, ChevronDown, Users, Printer, CheckSquare, Square, ChevronLeft, ChevronRight, Ban, Activity } from 'lucide-react';
 import { db } from '../services/mockDb';
@@ -252,7 +251,8 @@ const Members: React.FC = () => {
   };
 
   const handleBulkStatusUpdate = async (newStatus: 'active' | 'inactive') => {
-      const ids = Array.from(selectedIds);
+      // Fix: Explicitly type ids as string array to prevent 'unknown' type errors
+      const ids = Array.from(selectedIds) as string[];
       if (ids.length === 0) return;
 
       if (!confirm(`Are you sure you want to set ${ids.length} members to ${newStatus}?`)) return;
@@ -260,7 +260,8 @@ const Members: React.FC = () => {
       try {
         // Optimistic Update
         setMembers(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: newStatus } : m));
-        setSelectedIds(new Set()); // Clear selection
+        // Fix: Explicitly type new Set as Set<string>
+        setSelectedIds(new Set<string>()); // Clear selection
         setStatusMsg(`Updated ${ids.length} members to ${newStatus}.`);
         
         // Parallel backend updates
@@ -268,7 +269,7 @@ const Members: React.FC = () => {
         
         // Reload to ensure consistency
         await loadData();
-      } catch (err) {
+      } catch (err: any) {
         console.error("Bulk update failed", err);
         setStatusMsg("Failed to update some members.");
         loadData(); // Revert on error
@@ -421,22 +422,22 @@ const Members: React.FC = () => {
       {/* Sticky Header */}
       <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-            <h2 className="text-3xl font-bold text-slate-900">Members</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Members</h2>
             {canEdit && (
             <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
                 <button 
                 onClick={() => handlePrint(null)}
-                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm"
+                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm text-xs md:text-sm"
                 >
-                <Printer className="w-5 h-5" />
+                <Printer className="w-4 h-4 md:w-5 md:h-5" />
                 <span>{selectedIds.size > 0 ? `Print Selected (${selectedIds.size})` : 'Print All IDs'}</span>
                 </button>
-                <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm">
-                <FileUp className="w-5 h-5" /> <span className="hidden sm:inline">Import</span>
+                <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm text-xs md:text-sm">
+                <FileUp className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Import</span>
                 </button>
-                <button onClick={openAddModal} className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-md shadow-blue-900/10">
-                <Plus className="w-5 h-5" /> <span>Add Member</span>
+                <button onClick={openAddModal} className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-md shadow-blue-900/10 text-xs md:text-sm">
+                <Plus className="w-4 h-4 md:w-5 md:h-5" /> <span>Add Member</span>
                 </button>
             </div>
             )}
@@ -449,10 +450,10 @@ const Members: React.FC = () => {
             <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
             <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1">
                 <div className="relative w-full md:max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
                     <input 
                     type="text" placeholder="Search name, email, or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
+                    className="w-full pl-9 md:pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900 text-sm"
                     />
                 </div>
                 <div className="relative w-full md:w-auto min-w-[180px]">
@@ -478,7 +479,7 @@ const Members: React.FC = () => {
             </div>
             <div className="flex bg-slate-200/60 p-1 rounded-lg shrink-0 w-full lg:w-auto overflow-x-auto">
                 {['all', 'active', 'inactive'].map((status) => (
-                <button key={status} onClick={() => setStatusFilter(status as any)} className={`flex-1 lg:flex-none px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all duration-200 whitespace-nowrap ${statusFilter === status ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
+                <button key={status} onClick={() => setStatusFilter(status as any)} className={`flex-1 lg:flex-none px-4 py-1.5 rounded-md text-xs md:text-sm font-medium capitalize transition-all duration-200 whitespace-nowrap ${statusFilter === status ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
                     {status}
                 </button>
                 ))}
@@ -614,7 +615,7 @@ const Members: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals ... (keep existing modals as they are) */}
+      {/* Modals */}
       {selectedMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
@@ -634,7 +635,7 @@ const Members: React.FC = () => {
           </div>
         </div>
       )}
-
+      
       {historyMember && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl relative flex flex-col max-h-[80vh] animate-in slide-in-from-bottom-4 duration-200">
@@ -684,8 +685,7 @@ const Members: React.FC = () => {
             </div>
         </div>
       )}
-
-      {/* Add/Edit Member Modal */}
+      
       {isModalOpen && canEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">

@@ -164,9 +164,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Mobile Header - Hidden on Print */}
         <div className="md:hidden bg-blue-900 text-white p-4 flex items-center justify-between shadow-md z-20 print:hidden">
             <div className="flex items-center gap-3 min-w-0">
-                 <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white rounded-md p-0.5 flex-shrink-0" />
+                 <img src="/logo.png" alt="Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain bg-white rounded-md p-0.5 flex-shrink-0" />
                  <div className="min-w-0 flex items-center gap-2">
-                    <span className="font-bold truncate text-sm sm:text-base">Church of God <span className="text-blue-200 font-normal">{slogan}</span></span>
+                    <span className="font-bold truncate text-sm sm:text-base">Church of God <span className="text-blue-200 font-normal text-xs sm:text-sm">{slogan}</span></span>
                      {user.role === 'admin' && (
                       <button onClick={openSloganEdit} className="p-1 hover:bg-blue-800 rounded-full transition-colors flex-shrink-0">
                         <Edit2 className="w-3 h-3 text-blue-200" />

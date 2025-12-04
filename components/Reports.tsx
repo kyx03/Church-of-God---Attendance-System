@@ -166,6 +166,15 @@ const Reports: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Print Header */}
+      <div className="hidden print:flex items-center gap-4 mb-6 p-4 border-b border-slate-200">
+          <img src="/logo.png" className="w-16 h-16 object-contain" />
+          <div>
+              <h1 className="text-2xl font-bold text-slate-900">Church of God</h1>
+              <p className="text-slate-500">Ministry Reports</p>
+          </div>
+      </div>
+
       {/* Sticky Header */}
       <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm print:hidden">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">

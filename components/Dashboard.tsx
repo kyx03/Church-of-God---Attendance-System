@@ -54,8 +54,8 @@ const Dashboard: React.FC = () => {
       {/* Sticky Header */}
       <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
          <div className="max-w-7xl mx-auto">
-            <h2 className="text-3xl font-bold text-slate-900">Ministry Dashboard</h2>
-            <p className="text-slate-500 mt-1">Overview of church health and engagement.</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Ministry Dashboard</h2>
+            <p className="text-xs md:text-sm text-slate-500 mt-1">Overview of church health and engagement.</p>
          </div>
       </div>
 
@@ -68,9 +68,9 @@ const Dashboard: React.FC = () => {
                 <Users className="w-8 h-8 text-blue-900" />
             </div>
             <div>
-                <p className="text-sm font-medium text-slate-500">Total Members</p>
-                <p className="text-2xl font-bold text-slate-900">{totalMembers}</p>
-                <p className="text-xs text-blue-600 font-medium">{activeMembers} Active</p>
+                <p className="text-xs md:text-sm font-medium text-slate-500">Total Members</p>
+                <p className="text-xl md:text-2xl font-bold text-slate-900">{totalMembers}</p>
+                <p className="text-[10px] md:text-xs text-blue-600 font-medium">{activeMembers} Active</p>
             </div>
             </div>
 
@@ -79,9 +79,9 @@ const Dashboard: React.FC = () => {
                 <CalendarCheck className="w-8 h-8 text-red-600" />
             </div>
             <div>
-                <p className="text-sm font-medium text-slate-500">Events Hosted</p>
-                <p className="text-2xl font-bold text-slate-900">{events.length}</p>
-                <p className="text-xs text-slate-400">This Year</p>
+                <p className="text-xs md:text-sm font-medium text-slate-500">Events Hosted</p>
+                <p className="text-xl md:text-2xl font-bold text-slate-900">{events.length}</p>
+                <p className="text-[10px] md:text-xs text-slate-400">This Year</p>
             </div>
             </div>
 
@@ -90,13 +90,13 @@ const Dashboard: React.FC = () => {
                 <TrendingUp className="w-8 h-8 text-yellow-600" />
             </div>
             <div>
-                <p className="text-sm font-medium text-slate-500">Avg. Attendance</p>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-xs md:text-sm font-medium text-slate-500">Avg. Attendance</p>
+                <p className="text-xl md:text-2xl font-bold text-slate-900">
                 {chartData.length > 0 
                     ? Math.round(chartData.reduce((acc, curr) => acc + curr.attendees, 0) / chartData.length) 
                     : 0}
                 </p>
-                <p className="text-xs text-slate-400">Per Event</p>
+                <p className="text-[10px] md:text-xs text-slate-400">Per Event</p>
             </div>
             </div>
         </div>
@@ -109,18 +109,18 @@ const Dashboard: React.FC = () => {
                 <Sparkles className="w-6 h-6 text-yellow-300" />
                 </div>
                 <div className="max-w-2xl">
-                <h3 className="text-lg font-semibold mb-2">Pastor's Insight (AI)</h3>
+                <h3 className="text-base md:text-lg font-semibold mb-2">Pastor's Insight (AI)</h3>
                 {insight ? (
-                    <p className="text-white/90 leading-relaxed animate-fade-in">"{insight}"</p>
+                    <p className="text-sm md:text-base text-white/90 leading-relaxed animate-fade-in">"{insight}"</p>
                 ) : (
-                    <p className="text-white/70 text-sm">Generate a ministry health analysis based on your data.</p>
+                    <p className="text-xs md:text-sm text-white/70">Generate a ministry health analysis based on your data.</p>
                 )}
                 </div>
             </div>
             <button 
                 onClick={handleGetInsight}
                 disabled={loadingInsight}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50"
             >
                 {loadingInsight && <Loader2 className="w-4 h-4 animate-spin" />}
                 {insight ? 'Regenerate' : 'Analyze Data'}
@@ -131,7 +131,7 @@ const Dashboard: React.FC = () => {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-96">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Attendance Trend</h3>
+            <h3 className="text-base md:text-lg font-bold text-slate-900 mb-6">Attendance Trend</h3>
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                 <defs>
@@ -169,7 +169,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-96">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Event Types Breakdown</h3>
+            <h3 className="text-base md:text-lg font-bold text-slate-900 mb-6">Event Types Breakdown</h3>
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -197,7 +197,7 @@ const Dashboard: React.FC = () => {
                 <div className="p-2 bg-slate-100 rounded-lg">
                     <Calendar className="w-5 h-5 text-slate-600" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Recent Events Log</h3>
+                <h3 className="text-base md:text-lg font-bold text-slate-900">Recent Events Log</h3>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
