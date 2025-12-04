@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight, Search, Keyboard } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event } from '../types';
 
@@ -268,7 +268,40 @@ const Kiosk: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center text-white p-4">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 overflow-hidden bg-slate-900 text-white">
+      {/* Background Copy */}
+      <div className="absolute inset-0 overflow-hidden z-0">
+         <div className="absolute inset-0 bg-gradient-to-br from-blue-950 via-slate-900 to-indigo-950 animate-gradient bg-[length:200%_200%]"></div>
+         <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] animate-blob mix-blend-screen"></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] animate-blob animation-delay-2000 mix-blend-screen"></div>
+         <div className="absolute top-[40%] left-[30%] w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[80px] animate-blob animation-delay-4000 mix-blend-screen"></div>
+      </div>
+      
+       {/* Floating Geometric Shapes & Particles (Glassmorphism) - Copy from Login */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[15%] left-[10%] w-24 h-24 border border-white/10 rounded-3xl bg-white/5 backdrop-blur-md animate-float animation-delay-0 rotate-12 shadow-2xl shadow-blue-500/10"></div>
+          <div className="absolute bottom-[20%] right-[10%] w-40 h-40 border border-white/5 rounded-full bg-blue-500/5 backdrop-blur-xl animate-float animation-delay-2000 shadow-2xl shadow-purple-500/10"></div>
+          <div className="absolute top-[25%] right-[20%] w-16 h-16 border border-white/10 rounded-2xl bg-indigo-500/10 backdrop-blur-md animate-float-slow animation-delay-4000 rotate-45"></div>
+          <div className="absolute bottom-[30%] left-[15%] w-20 h-20 border border-white/10 rounded-full bg-emerald-500/5 backdrop-blur-sm animate-float animation-delay-1000"></div>
+
+          {/* Floating Particles */}
+          {[...Array(15)].map((_, i) => (
+            <div 
+                key={i}
+                className="absolute bg-white/20 rounded-full animate-pulse"
+                style={{
+                    width: Math.random() * 4 + 2 + 'px',
+                    height: Math.random() * 4 + 2 + 'px',
+                    top: Math.random() * 100 + '%',
+                    left: Math.random() * 100 + '%',
+                    animation: `float ${Math.random() * 10 + 10}s infinite ease-in-out`,
+                    animationDelay: `-${Math.random() * 10}s`,
+                    opacity: Math.random() * 0.5 + 0.1
+                }}
+            ></div>
+          ))}
+      </div>
+
       {/* Time Warning Modal */}
       {showTimeWarning && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -302,11 +335,11 @@ const Kiosk: React.FC = () => {
 
       <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent z-20">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Church of God</h1>
-          <p className="text-slate-300 text-sm flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white drop-shadow-md">Church of God</h1>
+          <p className="text-slate-200 text-sm flex items-center gap-2 font-medium drop-shadow">
             {activeEvent ? (
                 <>
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse box-shadow-glow"></span>
                     Check-in: {activeEvent.name}
                 </>
             ) : 'No Active Event'}
@@ -314,7 +347,7 @@ const Kiosk: React.FC = () => {
         </div>
         <button 
           onClick={exitKioskMode} 
-          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-200 rounded-lg transition-colors backdrop-blur-md border border-red-500/30"
+          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-100 rounded-lg transition-colors backdrop-blur-md border border-red-500/30 shadow-lg"
         >
           <LogOut className="w-4 h-4" />
           <span className="font-medium text-sm">Exit Kiosk</span>
@@ -322,22 +355,22 @@ const Kiosk: React.FC = () => {
       </div>
 
       <div className="w-full max-w-lg flex flex-col gap-6 animate-in zoom-in duration-300 relative z-10">
-        <div className="relative aspect-square bg-black rounded-3xl overflow-hidden border-4 border-slate-700 shadow-2xl">
+        <div className="relative aspect-square bg-black/40 backdrop-blur-sm rounded-3xl overflow-hidden border border-white/20 shadow-2xl ring-1 ring-white/10">
           {cameraActive ? (
             <>
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                 <div className="absolute top-8 left-0 right-0 text-center z-20 pointer-events-none">
                     <div className="bg-black/50 backdrop-blur-md text-white px-6 py-2 rounded-full inline-block font-medium border border-white/20 shadow-lg text-sm md:text-base">
-                        Position QR code in the frame to check in
+                        Position QR code in the frame
                     </div>
                 </div>
             </>
           ) : (
-             <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4 bg-slate-800 p-6 text-center">
+             <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-4 p-6 text-center">
                 <Camera className="w-16 h-16 opacity-50" />
-                <p className="text-red-400 font-medium">{scanResult.status === 'error' ? scanResult.message : 'Starting Camera...'}</p>
+                <p className="text-red-300 font-medium">{scanResult.status === 'error' ? scanResult.message : 'Starting Camera...'}</p>
                 {scanResult.status === 'error' && (
-                    <button onClick={startCamera} className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors">
+                    <button onClick={startCamera} className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-colors shadow-lg">
                         Retry Camera
                     </button>
                 )}
@@ -363,13 +396,23 @@ const Kiosk: React.FC = () => {
           )}
         </div>
 
+        {/* Instruction Box (New) */}
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 text-center shadow-lg transform transition-all hover:bg-white/15">
+            <p className="text-sm font-bold text-blue-100 mb-2 uppercase tracking-wider">How to Check In</p>
+            <div className="flex justify-center gap-6 text-xs text-slate-200 font-medium">
+               <span className="flex items-center gap-1.5"><QrCode className="w-4 h-4 text-blue-300" /> Scan QR Code</span>
+               <span className="flex items-center text-white/40">|</span>
+               <span className="flex items-center gap-1.5"><Keyboard className="w-4 h-4 text-blue-300" /> Type ID Below</span>
+            </div>
+        </div>
+
         <div className="flex gap-4">
             <button 
                 onClick={simulateScan} 
-                className="flex-1 py-4 bg-slate-800 text-slate-300 rounded-xl font-bold text-lg hover:bg-slate-700 transition-all flex items-center justify-center gap-2 border border-slate-700"
+                className="flex-1 py-3.5 bg-slate-800/80 backdrop-blur-sm text-slate-300 rounded-xl font-bold text-lg hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/10 shadow-lg"
             >
                 <QrCode className="w-5 h-5" />
-                Simulate Scan
+                <span className="text-sm">Simulate</span>
             </button>
         </div>
 
@@ -379,10 +422,10 @@ const Kiosk: React.FC = () => {
                 value={manualId}
                 onChange={e => setManualId(e.target.value)}
                 placeholder="Or enter Member ID manually..." 
-                className="w-full bg-slate-800 border-none text-white placeholder-slate-500 rounded-xl py-4 px-6 focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono tracking-wider"
+                className="w-full bg-slate-800/80 backdrop-blur-sm border border-white/10 text-white placeholder-slate-400 rounded-xl py-3.5 px-6 focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono tracking-wider shadow-xl transition-all focus:bg-slate-800"
             />
-            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-slate-700 rounded-lg text-slate-300 hover:text-white">
-                →
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-slate-700/80 rounded-lg text-slate-300 hover:text-white hover:bg-blue-600 transition-colors">
+                <ChevronRight className="w-5 h-5" />
             </button>
         </form>
       </div>
@@ -393,6 +436,45 @@ const Kiosk: React.FC = () => {
           90% { opacity: 1; }
           100% { top: 100%; opacity: 0; }
         }
+        @keyframes blob {
+          0% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes float {
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(2deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes float-slow {
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-30px) rotate(-2deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+        
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animate-gradient {
+            animation: gradient 15s ease infinite;
+        }
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        .animate-float-slow {
+          animation: float-slow 9s ease-in-out infinite;
+        }
+        .animation-delay-500 { animation-delay: 0.5s; }
+        .animation-delay-1000 { animation-delay: 1s; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-3000 { animation-delay: 3s; }
+        .animation-delay-4000 { animation-delay: 4s; }
       `}</style>
     </div>
   );

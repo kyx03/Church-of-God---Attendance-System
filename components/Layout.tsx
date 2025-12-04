@@ -87,7 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       `}>
         <div className="p-6 border-b border-blue-800 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-1 bg-white rounded-lg h-10 w-10 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="p-1 bg-white rounded-lg h-12 w-12 flex items-center justify-center overflow-hidden flex-shrink-0">
                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" 
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
@@ -164,7 +164,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Mobile Header - Hidden on Print */}
         <div className="md:hidden bg-blue-900 text-white p-4 flex items-center justify-between shadow-md z-20 print:hidden">
             <div className="flex items-center gap-3 min-w-0">
-                 <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white rounded-md p-0.5 flex-shrink-0" />
+                 <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white rounded-md p-0.5 flex-shrink-0" />
                  <div className="min-w-0 flex items-center gap-2">
                     <span className="font-bold truncate text-sm sm:text-base">Church of God <span className="text-blue-200 font-normal">{slogan}</span></span>
                      {user.role === 'admin' && (

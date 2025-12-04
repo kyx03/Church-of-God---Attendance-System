@@ -268,7 +268,7 @@ const Members: React.FC = () => {
         
         // Reload to ensure consistency
         await loadData();
-      } catch (err: any) {
+      } catch (err) {
         console.error("Bulk update failed", err);
         setStatusMsg("Failed to update some members.");
         loadData(); // Revert on error
@@ -294,9 +294,10 @@ const Members: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const result = event.target?.result;
+      const target = event.target as FileReader;
+      const result = target?.result;
       if (typeof result !== 'string') return;
-      const text = result;
+      const text = result as string;
 
       if (!text) return;
 
