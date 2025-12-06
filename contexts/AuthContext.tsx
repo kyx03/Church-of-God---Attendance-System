@@ -13,13 +13,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize user state from localStorage to persist login across reloads
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const storedUser = localStorage.getItem('church_app_user');
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (e) {
+      console.error("Failed to restore session", e);
+      return null;
+    }
+  });
 
   const login = async (username: string, password: string) => {
     try {
       const userData = await db.login(username, password);
       if (userData) {
         setUser(userData);
+        localStorage.setItem('church_app_user', JSON.stringify(userData));
         return true;
       }
       return false;
@@ -29,13 +39,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('church_app_user');
+  };
 
   const updateProfile = async (updates: { name?: string; username?: string; password?: string }) => {
     if (!user) return;
     const updatedUser = await db.updateUser(user.id, updates);
     if (updatedUser) {
         setUser(updatedUser);
+        localStorage.setItem('church_app_user', JSON.stringify(updatedUser));
     }
   };
 

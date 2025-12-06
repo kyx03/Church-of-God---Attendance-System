@@ -1,6 +1,5 @@
-
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Mail, Phone, MapPin, X, Trash2, Edit2, Calendar, User, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Mail, Phone, MapPin, X, Trash2, Edit2, Calendar, User, CheckCircle2, AlertTriangle, Filter, ChevronDown, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Guest, Event } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +10,15 @@ const Guests: React.FC = () => {
   const { user } = useAuth();
   const [guests, setGuests] = useState<Guest[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [homeChurchFilter, setHomeChurchFilter] = useState('all');
+  const [eventFilter, setEventFilter] = useState('all');
+  
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
@@ -25,7 +32,8 @@ const Guests: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+    setSelectedIds(new Set()); // Clear selection when filters change
+  }, [searchTerm, homeChurchFilter, eventFilter]);
 
   const loadData = async () => {
     const [g, e] = await Promise.all([db.getGuests(), db.getEvents()]);
@@ -34,12 +42,26 @@ const Guests: React.FC = () => {
   };
 
   const publicEvents = events.filter(e => e.isPublic);
+  
+  // Extract Unique Values for Filters
+  const uniqueHomeChurches = Array.from(new Set(guests.map(g => g.homeChurch || ''))).filter(Boolean).sort();
+  // Filter for public events only for the dropdown, sorted by date newest first
+  const sortedEventsForFilter = events
+    .filter(e => e.isPublic)
+    .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const filteredGuests = guests.filter(g => 
-    `${g.firstName} ${g.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    g.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    g.phone.includes(searchTerm)
-  );
+  const filteredGuests = guests.filter(g => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = 
+        `${g.firstName} ${g.lastName}`.toLowerCase().includes(term) ||
+        g.email.toLowerCase().includes(term) ||
+        g.phone.includes(term);
+
+    const matchesHomeChurch = homeChurchFilter === 'all' || g.homeChurch === homeChurchFilter;
+    const matchesEvent = eventFilter === 'all' || g.eventId === eventFilter;
+
+    return matchesSearch && matchesHomeChurch && matchesEvent;
+  });
 
   const totalPages = Math.ceil(filteredGuests.length / ITEMS_PER_PAGE);
   const paginatedGuests = filteredGuests.slice(
@@ -52,12 +74,52 @@ const Guests: React.FC = () => {
     return evt ? evt.name : 'Unknown Event';
   };
 
+  // Selection Logic
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    const idsOnPage = paginatedGuests.map(g => g.id);
+    const allSelected = idsOnPage.every(id => selectedIds.has(id));
+    
+    const newSet = new Set(selectedIds);
+    if (allSelected) {
+        idsOnPage.forEach(id => newSet.delete(id));
+    } else {
+        idsOnPage.forEach(id => newSet.add(id));
+    }
+    setSelectedIds(newSet);
+  };
+
+  const handleBulkDelete = async () => {
+      const ids = Array.from(selectedIds) as string[];
+      if (ids.length === 0) return;
+      
+      if (!confirm(`Are you sure you want to delete ${ids.length} guests? This cannot be undone.`)) return;
+
+      try {
+          await Promise.all(ids.map(id => db.deleteGuest(id)));
+          setStatusMsg(`Deleted ${ids.length} guests.`);
+          setSelectedIds(new Set<string>());
+          loadData();
+      } catch (e) {
+          console.error(e);
+          setStatusMsg("Failed to delete some guests.");
+      }
+      setTimeout(() => setStatusMsg(null), 3000);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGuest.firstName || !newGuest.lastName || !newGuest.eventId || !newGuest.homeChurch) return;
 
     if (editingGuest) {
-      // Mock update
+      // Mock update - In a real app we'd have an updateGuest method
+      // For now we can just reload or implement specific update logic if MockDb supports it
       setStatusMsg("Guest updated successfully (Mock).");
     } else {
       await db.addGuest({
@@ -85,6 +147,11 @@ const Guests: React.FC = () => {
       setDeleteGuestTarget(null);
       setStatusMsg("Guest deleted successfully.");
       setTimeout(() => setStatusMsg(null), 3000);
+      
+      // If page becomes empty, go back
+      if (paginatedGuests.length === 1 && currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+      }
     }
   };
 
@@ -110,32 +177,79 @@ const Guests: React.FC = () => {
         )}
 
       <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Guests</h2>
-          <div className="flex gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
-                    type="text" 
-                    placeholder="Search guests..." 
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
-            <button onClick={openAddModal} className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors shadow-md text-sm whitespace-nowrap">
-                <Plus className="w-4 h-4" /> Add Guest
-            </button>
-          </div>
+          <button onClick={openAddModal} className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors shadow-md text-sm whitespace-nowrap">
+              <Plus className="w-4 h-4" /> Add Guest
+          </button>
         </div>
       </div>
 
       <div className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Filter Bar */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Search guests..." 
+                        className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                
+                <div className="relative min-w-[200px]">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <select 
+                        value={homeChurchFilter} 
+                        onChange={(e) => setHomeChurchFilter(e.target.value)} 
+                        className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-900 appearance-none cursor-pointer"
+                    >
+                        <option value="all">All Home Churches</option>
+                        {uniqueHomeChurches.map(church => (
+                            <option key={church} value={church}>{church}</option>
+                        ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+
+                <div className="relative min-w-[200px]">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                    <select 
+                        value={eventFilter} 
+                        onChange={(e) => setEventFilter(e.target.value)} 
+                        className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm text-slate-900 appearance-none cursor-pointer"
+                    >
+                        <option value="all">All Public Events</option>
+                        {sortedEventsForFilter.map(evt => (
+                            <option key={evt.id} value={evt.id}>{evt.name} ({new Date(evt.date).toLocaleDateString()})</option>
+                        ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+            </div>
+
+            {/* Bulk Actions Bar */}
+            {selectedIds.size > 0 && (
+                <div className="bg-red-50 px-6 py-2 border-b border-red-100 flex items-center justify-between animate-in slide-in-from-top-2">
+                    <span className="text-sm font-bold text-red-800">{selectedIds.size} selected</span>
+                    <button onClick={handleBulkDelete} className="text-xs px-3 py-1.5 bg-white border border-red-200 rounded text-red-600 font-semibold hover:bg-red-50 flex items-center gap-1 shadow-sm transition-colors">
+                        <Trash2 className="w-3 h-3" /> Delete Selected
+                    </button>
+                </div>
+            )}
+
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
                         <tr>
+                            <th className="px-4 py-4 w-10 text-center">
+                                <button onClick={toggleSelectAll} className="flex items-center justify-center text-slate-400 hover:text-blue-600">
+                                    {paginatedGuests.length > 0 && paginatedGuests.every(g => selectedIds.has(g.id)) ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5" />}
+                                </button>
+                            </th>
                             <th className="px-6 py-4">Guest Name</th>
                             <th className="px-6 py-4">Contact</th>
                             <th className="px-6 py-4">Home Church</th>
@@ -145,9 +259,16 @@ const Guests: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {paginatedGuests.length === 0 ? (
-                            <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">No guests found.</td></tr>
-                        ) : paginatedGuests.map(guest => (
-                            <tr key={guest.id} className="hover:bg-slate-50">
+                            <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">No guests found.</td></tr>
+                        ) : paginatedGuests.map(guest => {
+                            const isSelected = selectedIds.has(guest.id);
+                            return (
+                            <tr key={guest.id} className={`transition-colors ${isSelected ? 'bg-red-50/30 hover:bg-red-50/50' : 'hover:bg-slate-50'}`}>
+                                <td className="px-4 py-4 text-center">
+                                    <button onClick={() => toggleSelection(guest.id)} className="flex items-center justify-center text-slate-300 hover:text-blue-500">
+                                        {isSelected ? <CheckSquare className="w-5 h-5 text-blue-600" /> : <Square className="w-5 h-5" />}
+                                    </button>
+                                </td>
                                 <td className="px-6 py-4">
                                     <div className="font-semibold text-slate-900">{guest.firstName} {guest.lastName}</div>
                                     <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><Calendar className="w-3 h-3" /> {new Date(guest.registrationDate).toLocaleDateString()}</div>
@@ -173,7 +294,7 @@ const Guests: React.FC = () => {
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        )})}
                     </tbody>
                 </table>
             </div>
@@ -183,8 +304,24 @@ const Guests: React.FC = () => {
                 <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
                     <span className="text-xs text-slate-500">Page {currentPage} of {totalPages}</span>
                     <div className="flex gap-1">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 text-xs">Prev</button>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 text-xs">Next</button>
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 text-xs shadow-sm"><ChevronLeft className="w-4 h-4"/></button>
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let p = i + 1;
+                            if (totalPages > 5 && currentPage > 3) {
+                                p = currentPage - 2 + i;
+                                if (p > totalPages) p = totalPages - (4 - i);
+                            }
+                            return (
+                                <button
+                                    key={p}
+                                    onClick={() => setCurrentPage(p)}
+                                    className={`w-7 h-7 rounded text-xs font-medium ${currentPage === p ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                    {p}
+                                </button>
+                            );
+                        })}
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 text-xs shadow-sm"><ChevronRight className="w-4 h-4"/></button>
                     </div>
                 </div>
             )}

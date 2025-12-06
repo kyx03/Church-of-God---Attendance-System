@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight, Search, Keyboard } from 'lucide-react';
+import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight, Search, Keyboard, UserPlus, Save } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event, Member, Guest } from '../types';
 
@@ -16,6 +16,16 @@ const Kiosk: React.FC = () => {
   const [showTimeWarning, setShowTimeWarning] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Walk-in Guest State
+  const [showGuestForm, setShowGuestForm] = useState(false);
+  const [guestFormData, setGuestFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    homeChurch: ''
+  });
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -96,6 +106,7 @@ const Kiosk: React.FC = () => {
     setActiveEvent(null);
     stopCamera();
     setShowTimeWarning(false);
+    setShowGuestForm(false);
   };
 
   const markEventCompleted = async () => {
@@ -231,6 +242,46 @@ const Kiosk: React.FC = () => {
         processAttendance(idToProcess);
         setManualId('');
     }
+  };
+
+  const handleGuestSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!activeEvent) return;
+
+      try {
+          const newId = `g-walkin-${Date.now()}`;
+          const newGuest: Guest = {
+              id: newId,
+              eventId: activeEvent.id,
+              firstName: guestFormData.firstName,
+              lastName: guestFormData.lastName,
+              email: guestFormData.email,
+              phone: guestFormData.phone,
+              homeChurch: guestFormData.homeChurch || 'Walk-in',
+              registrationDate: new Date().toISOString()
+          };
+
+          await db.addGuest(newGuest);
+          
+          // Mark Attendance immediately
+          await db.markAttendance({
+              id: `att-gst-${Date.now()}`,
+              eventId: activeEvent.id,
+              memberId: newId,
+              timestamp: new Date().toISOString(),
+              method: 'manual'
+          });
+
+          setScanResult({ status: 'success', message: `Welcome, ${newGuest.firstName}! (Walk-in)` });
+          setShowGuestForm(false);
+          setGuestFormData({ firstName: '', lastName: '', email: '', phone: '', homeChurch: '' });
+          
+          setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
+
+      } catch (e) {
+          console.error("Walk-in registration error", e);
+          alert("Failed to register guest. Please try again.");
+      }
   };
 
   if (step === 'select') {
@@ -383,6 +434,46 @@ const Kiosk: React.FC = () => {
           </div>
       )}
 
+      {/* Walk-in Guest Form Modal */}
+      {showGuestForm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+             <div className="bg-white text-slate-900 rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl relative">
+                  <button onClick={() => setShowGuestForm(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
+                  <h3 className="text-2xl font-bold mb-1">New Guest Check-in</h3>
+                  <p className="text-slate-500 mb-6 text-sm">Register and check-in immediately.</p>
+                  
+                  <form onSubmit={handleGuestSubmit} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 uppercase mb-1">First Name <span className="text-red-500">*</span></label>
+                            <input required className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-900 outline-none" 
+                                value={guestFormData.firstName} onChange={e => setGuestFormData({...guestFormData, firstName: e.target.value})} placeholder="John"/>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Last Name <span className="text-red-500">*</span></label>
+                            <input required className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-900 outline-none" 
+                                value={guestFormData.lastName} onChange={e => setGuestFormData({...guestFormData, lastName: e.target.value})} placeholder="Doe"/>
+                        </div>
+                      </div>
+                      <div>
+                            <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Home Church <span className="text-red-500">*</span></label>
+                            <input required className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-900 outline-none" 
+                                value={guestFormData.homeChurch} onChange={e => setGuestFormData({...guestFormData, homeChurch: e.target.value})} placeholder="Church Name"/>
+                      </div>
+                      <div>
+                            <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Phone <span className="text-slate-400 font-normal lowercase">(optional)</span></label>
+                            <input className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-900 outline-none" 
+                                value={guestFormData.phone} onChange={e => setGuestFormData({...guestFormData, phone: e.target.value.replace(/[^0-9]/g, '')})} placeholder="Numbers only"/>
+                      </div>
+                      
+                      <button type="submit" className="w-full py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 mt-2">
+                          <CheckCircle className="w-5 h-5" /> Check In
+                      </button>
+                  </form>
+             </div>
+        </div>
+      )}
+
       <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent z-20">
         <div className="flex items-center gap-3">
           <div className="bg-white/95 p-1.5 rounded-xl shadow-lg shadow-black/20 backdrop-blur-sm">
@@ -461,10 +552,17 @@ const Kiosk: React.FC = () => {
             </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="grid grid-cols-2 gap-3">
+            <button 
+                onClick={() => setShowGuestForm(true)} 
+                className="flex-1 py-3 md:py-3.5 bg-blue-600/90 backdrop-blur-sm text-white rounded-xl font-bold text-sm md:text-base hover:bg-blue-500 transition-all flex items-center justify-center gap-2 border border-white/10 shadow-lg"
+            >
+                <UserPlus className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="text-xs md:text-sm">New Guest</span>
+            </button>
             <button 
                 onClick={simulateScan} 
-                className="flex-1 py-3 md:py-3.5 bg-slate-800/80 backdrop-blur-sm text-slate-300 rounded-xl font-bold text-sm md:text-lg hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/10 shadow-lg"
+                className="flex-1 py-3 md:py-3.5 bg-slate-800/80 backdrop-blur-sm text-slate-300 rounded-xl font-bold text-sm md:text-base hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center gap-2 border border-white/10 shadow-lg"
             >
                 <QrCode className="w-4 h-4 md:w-5 md:h-5" />
                 <span className="text-xs md:text-sm">Simulate</span>
