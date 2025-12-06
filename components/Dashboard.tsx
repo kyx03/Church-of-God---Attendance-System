@@ -51,9 +51,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
-         <div className="max-w-7xl mx-auto">
+      {/* Sticky Header with fixed height h-24 */}
+      <div className="md:h-24 sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-8 shadow-sm flex items-center shrink-0 py-4 md:py-0">
+         <div className="max-w-7xl mx-auto w-full">
             <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Ministry Dashboard</h2>
             <p className="text-xs md:text-sm text-slate-500 mt-1">Overview of church health and engagement.</p>
          </div>
@@ -154,7 +154,7 @@ const Dashboard: React.FC = () => {
                     tick={{fill: '#64748b', fontSize: 12}} 
                 />
                 <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Area 
                     type="monotone" 

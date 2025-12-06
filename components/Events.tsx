@@ -421,9 +421,9 @@ const Events: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Sticky Header with fixed height h-24 */}
+      <div className="md:h-24 sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-8 shadow-sm flex items-center shrink-0 py-4 md:py-0">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
             <div>
             <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Events Schedule</h2>
             <p className="text-xs md:text-sm text-slate-500">Manage church services and gatherings.</p>

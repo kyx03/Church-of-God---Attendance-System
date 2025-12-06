@@ -86,7 +86,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         transform transition-transform duration-300 ease-in-out print:hidden
         ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <div className="p-6 border-b border-blue-800 flex justify-between items-center">
+        {/* Header aligned with h-24 */}
+        <div className="md:h-24 p-6 border-b border-blue-800 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-1 bg-white rounded-lg h-12 w-12 flex items-center justify-center overflow-hidden flex-shrink-0">
                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" 
@@ -134,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-blue-800 bg-blue-950">
+        <div className="p-4 border-t border-blue-800 bg-blue-950 shrink-0">
           <button 
             onClick={openProfile}
             className="flex items-center gap-3 mb-4 px-2 w-full hover:bg-blue-900 p-2 rounded-lg transition-colors text-left"

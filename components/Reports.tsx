@@ -175,9 +175,9 @@ const Reports: React.FC = () => {
           </div>
       </div>
 
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm print:hidden">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      {/* Sticky Header with fixed height h-24 */}
+      <div className="md:h-24 sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-8 shadow-sm flex items-center shrink-0 print:hidden py-4 md:py-0">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full">
             <div>
             <h2 className="text-3xl font-bold text-slate-900">Reports Center</h2>
             <p className="text-slate-500">Analytics and member insights.</p>

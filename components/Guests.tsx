@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Plus, Search, Mail, Phone, MapPin, X, Trash2, Edit2, Calendar, User, CheckCircle2, AlertTriangle, Filter, ChevronDown, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '../services/mockDb';
@@ -176,8 +177,8 @@ const Guests: React.FC = () => {
             </div>
         )}
 
-      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 shadow-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
+      <div className="md:h-24 sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-8 shadow-sm flex items-center shrink-0 py-4 md:py-0">
+        <div className="max-w-7xl mx-auto flex justify-between items-center gap-4 w-full">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Guests</h2>
           <button onClick={openAddModal} className="bg-blue-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium hover:bg-blue-800 transition-colors shadow-md text-sm whitespace-nowrap">
               <Plus className="w-4 h-4" /> Add Guest
