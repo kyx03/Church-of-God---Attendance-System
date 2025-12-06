@@ -34,6 +34,8 @@ const LoginScreen: React.FC = () => {
     const success = await login(username, password);
     if (!success) {
       setError('Invalid username or password');
+    } else {
+      window.location.hash = '/';
     }
     setIsLoading(false);
   };

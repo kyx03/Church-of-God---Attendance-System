@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, FileUp, Edit2, ChevronDown, Users, Printer, CheckSquare, Square, ChevronLeft, ChevronRight, Ban, Activity } from 'lucide-react';
+
+import React, { useEffect, useState } from 'react';
+import { Plus, Search, Mail, Phone, MoreVertical, X, Filter, Trash2, Power, History, Calendar, CheckCircle2, AlertTriangle, Check, Upload, Download, Edit2, ChevronDown, Users, Printer, CheckSquare, Square, ChevronLeft, ChevronRight, Ban, Activity } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Member, Event, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,8 +52,6 @@ const Members: React.FC = () => {
   
   const [isCustomMinistry, setIsCustomMinistry] = useState(false);
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const canEdit = user?.role === 'admin' || user?.role === 'secretary';
 
   useEffect(() => {
@@ -251,28 +250,23 @@ const Members: React.FC = () => {
   };
 
   const handleBulkStatusUpdate = async (newStatus: 'active' | 'inactive') => {
-      // Fix: Explicitly type ids as string array to prevent 'unknown' type errors
       const ids = Array.from(selectedIds) as string[];
       if (ids.length === 0) return;
 
       if (!confirm(`Are you sure you want to set ${ids.length} members to ${newStatus}?`)) return;
 
       try {
-        // Optimistic Update
         setMembers(prev => prev.map(m => ids.includes(m.id) ? { ...m, status: newStatus } : m));
-        // Fix: Explicitly type new Set as Set<string>
-        setSelectedIds(new Set<string>()); // Clear selection
+        setSelectedIds(new Set<string>()); 
         setStatusMsg(`Updated ${ids.length} members to ${newStatus}.`);
         
-        // Parallel backend updates
         await Promise.all(ids.map(id => db.updateMember(id, { status: newStatus })));
         
-        // Reload to ensure consistency
         await loadData();
       } catch (err: any) {
         console.error("Bulk update failed", err);
         setStatusMsg("Failed to update some members.");
-        loadData(); // Revert on error
+        loadData();
       }
       
       setTimeout(() => setStatusMsg(null), 3000);
@@ -289,51 +283,49 @@ const Members: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const escapeCsv = (str: string) => {
+    if (!str) return '';
+    const stringValue = String(str);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const target = event.target as FileReader;
-      const result = target?.result;
-      if (typeof result !== 'string') return;
-      const text = result as string;
+  const handleExport = () => {
+    const hasSelection = selectedIds.size > 0;
+    const membersToExport = hasSelection 
+       ? members.filter(m => selectedIds.has(m.id))
+       : members;
 
-      if (!text) return;
+    if (membersToExport.length === 0) {
+        alert("No members to export.");
+        return;
+    }
 
-      const lines = text.split('\n');
-      let count = 0;
-      const startIndex = lines[0].toLowerCase().includes('email') ? 1 : 0;
-
-      for (let i = startIndex; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const [firstName, lastName, email, phone, ministry] = line.split(',').map(s => s.trim());
-        
-        if (firstName && lastName) {
-          let newId = generateMemberId();
-          while(members.some(m => m.id === newId)) newId = generateMemberId();
-
-          await db.addMember({
-            id: newId,
-            firstName,
-            lastName,
-            email: email || '',
-            phone: phone || '',
-            joinDate: new Date().toISOString().split('T')[0],
-            status: 'active',
-            ministry: ministry || 'None'
-          });
-          count++;
-        }
-      }
-      
-      loadData();
-      alert(`Successfully imported ${count} members.`);
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    const headers = ['Member ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Ministry', 'Status', 'Join Date'];
+    const rows = membersToExport.map(m => [
+        escapeCsv(m.id),
+        escapeCsv(m.firstName),
+        escapeCsv(m.lastName),
+        escapeCsv(m.email),
+        escapeCsv(m.phone),
+        escapeCsv(m.ministry || 'None'),
+        escapeCsv(m.status),
+        escapeCsv(m.joinDate)
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+        + headers.join(",") + "\n" 
+        + rows.map(e => e.join(",")).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `members_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const getMemberHistory = (memberId: string) => {
@@ -425,7 +417,6 @@ const Members: React.FC = () => {
             <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Members</h2>
             {canEdit && (
             <div className="flex flex-wrap gap-2 w-full xl:w-auto">
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
                 <button 
                 onClick={() => handlePrint(null)}
                 className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm text-xs md:text-sm"
@@ -433,8 +424,8 @@ const Members: React.FC = () => {
                 <Printer className="w-4 h-4 md:w-5 md:h-5" />
                 <span>{selectedIds.size > 0 ? `Print Selected (${selectedIds.size})` : 'Print All IDs'}</span>
                 </button>
-                <button onClick={() => fileInputRef.current?.click()} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm text-xs md:text-sm">
-                <FileUp className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">Import</span>
+                <button onClick={handleExport} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-sm text-xs md:text-sm">
+                <Download className="w-4 h-4 md:w-5 md:h-5" /> <span className="hidden sm:inline">{selectedIds.size > 0 ? `Export Selected (${selectedIds.size})` : 'Export All'}</span>
                 </button>
                 <button onClick={openAddModal} className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors flex-1 xl:flex-none justify-center whitespace-nowrap shadow-md shadow-blue-900/10 text-xs md:text-sm">
                 <Plus className="w-4 h-4 md:w-5 md:h-5" /> <span>Add Member</span>

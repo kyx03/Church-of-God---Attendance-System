@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight, Search, Keyboard, UserPlus, Save } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event, Member, Guest } from '../types';
+import jsQR from 'jsqr';
 
 const ITEMS_PER_PAGE = 9;
 
@@ -28,8 +29,12 @@ const Kiosk: React.FC = () => {
   });
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null); // New canvas for processing frames
   const streamRef = useRef<MediaStream | null>(null);
   const timeCheckInterval = useRef<any>(null);
+  const scanLoopRef = useRef<number | null>(null);
+  const lastScannedRef = useRef<string | null>(null);
+  const cooldownRef = useRef<boolean>(false);
 
   useEffect(() => {
     db.getEvents().then(allEvents => {
@@ -52,6 +57,7 @@ const Kiosk: React.FC = () => {
     return () => {
         stopCamera();
         if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
+        if (scanLoopRef.current) cancelAnimationFrame(scanLoopRef.current);
     };
   }, []);
 
@@ -152,45 +158,17 @@ const Kiosk: React.FC = () => {
       if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
   };
 
-  const startCamera = async () => {
-    setScanResult({ status: 'idle', message: '' });
-    if (streamRef.current) return;
-
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Camera API not available.");
-      }
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      streamRef.current = stream;
-      setCameraActive(true);
-      // Removed direct assignment here; relying on useEffect [cameraActive] to attach stream to ref
-    } catch (err: any) {
-      console.error("Camera error:", err);
-      setScanResult({ status: 'error', message: "Camera access required." });
-      setCameraActive(false);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setCameraActive(false);
-    if (videoRef.current) {
-        videoRef.current.srcObject = null;
-    }
-  };
-
   const processAttendance = useCallback(async (scannedId: string) => {
     if (!activeEvent) return;
 
     try {
       const [members, guests] = await Promise.all([db.getMembers(), db.getGuests()]);
       
+      // Clean ID
+      const idToProcess = scannedId.trim();
+
       // Check if Member
-      const member = members.find(m => m.id === scannedId);
+      const member = members.find(m => m.id === idToProcess);
       if (member) {
         // Record Attendance
         await db.markAttendance({
@@ -210,7 +188,7 @@ const Kiosk: React.FC = () => {
 
             if (!alreadyGuest) {
                 await db.addGuest({
-                    id: `g-mem-${Date.now()}`, // Distinct ID to avoid PK conflict if storing differently, though guests usually independent
+                    id: `g-mem-${Date.now()}`, 
                     eventId: activeEvent.id,
                     firstName: member.firstName,
                     lastName: member.lastName,
@@ -228,14 +206,12 @@ const Kiosk: React.FC = () => {
       } 
       
       // Check if Guest
-      const guest = guests.find(g => g.id === scannedId && g.eventId === activeEvent.id);
+      const guest = guests.find(g => g.id === idToProcess && g.eventId === activeEvent.id);
       if (guest) {
-          // Record Attendance for Guest
-          // Note: AttendanceRecord expects memberId. We reuse the field for guestId for tracking purposes.
           await db.markAttendance({
             id: `att-gst-${Date.now()}`,
             eventId: activeEvent.id,
-            memberId: guest.id, // Using Guest ID here
+            memberId: guest.id, 
             timestamp: new Date().toISOString(),
             method: 'qr'
           });
@@ -245,13 +221,97 @@ const Kiosk: React.FC = () => {
       }
 
       setScanResult({ status: 'error', message: 'ID not found.' });
+      setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
+
     } catch (e) {
       console.error(e);
       setScanResult({ status: 'error', message: 'System error.' });
+      setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
     }
-
-    setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
   }, [activeEvent]);
+
+  // QR Scanning Loop
+  const tick = useCallback(() => {
+    if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (canvas) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Attempt decoding
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    if (code.data && !cooldownRef.current && code.data !== lastScannedRef.current) {
+                        cooldownRef.current = true;
+                        lastScannedRef.current = code.data;
+                        
+                        // Process the found code
+                        processAttendance(code.data);
+
+                        // Reset cooldown after 3 seconds to allow scanning same person again if needed
+                        // But mostly to prevent spamming the same frame
+                        setTimeout(() => {
+                            cooldownRef.current = false;
+                            lastScannedRef.current = null; // Clear last scanned to allow re-scan after delay
+                        }, 3000);
+                    }
+                }
+            }
+        }
+    }
+    scanLoopRef.current = requestAnimationFrame(tick);
+  }, [processAttendance]);
+
+  const startCamera = async () => {
+    setScanResult({ status: 'idle', message: '' });
+    if (streamRef.current) return;
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not available.");
+      }
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      setCameraActive(true);
+    } catch (err: any) {
+      console.error("Camera error:", err);
+      setScanResult({ status: 'error', message: "Camera access required." });
+      setCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+    if (scanLoopRef.current) {
+        cancelAnimationFrame(scanLoopRef.current);
+        scanLoopRef.current = null;
+    }
+    if (videoRef.current) {
+        videoRef.current.srcObject = null;
+    }
+  };
+
+  // Start/Stop scan loop based on camera state
+  useEffect(() => {
+      if (cameraActive) {
+          scanLoopRef.current = requestAnimationFrame(tick);
+      } else {
+          if (scanLoopRef.current) cancelAnimationFrame(scanLoopRef.current);
+      }
+  }, [cameraActive, tick]);
 
   const simulateScan = () => {
     // Simulate finding a member for testing
@@ -527,6 +587,7 @@ const Kiosk: React.FC = () => {
 
       <div className="w-full max-w-lg flex flex-col gap-4 md:gap-6 animate-in zoom-in duration-300 relative z-10">
         <div className="relative aspect-square bg-black/40 backdrop-blur-sm rounded-3xl overflow-hidden border border-white/20 shadow-2xl ring-1 ring-white/10">
+          <canvas ref={canvasRef} className="hidden"></canvas> {/* Hidden canvas for QR processing */}
           {cameraActive ? (
             <>
                 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
