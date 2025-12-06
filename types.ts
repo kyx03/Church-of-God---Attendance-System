@@ -19,6 +19,17 @@ export interface Member {
   ministry?: string;
 }
 
+export interface Guest {
+  id: string;
+  eventId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  homeChurch?: string; // Optional field for visitors
+  registrationDate: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -27,6 +38,8 @@ export interface Event {
   type: 'service' | 'youth' | 'outreach' | 'meeting';
   status: 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
   cancellationReason?: string;
+  isPublic?: boolean; // Toggle for public registration
+  description?: string; // Optional description
 }
 
 export interface AttendanceRecord {

@@ -7,7 +7,9 @@ import Members from './components/Members';
 import Events from './components/Events';
 import Kiosk from './components/Kiosk';
 import Reports from './components/Reports';
+import Guests from './components/Guests';
 import CheckInPage from './components/CheckInPage';
+import GuestRegistration from './components/GuestRegistration';
 import { User, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { db } from './services/mockDb';
@@ -229,15 +231,15 @@ const LoginScreen: React.FC = () => {
 const AppContent: React.FC = () => {
   const { user } = useAuth();
 
-  // Allow access to check-in page even without login
+  // Allow access to check-in and registration pages even without login
   if (!user) {
-    // Check if current path matches checkin
-    if (window.location.hash.startsWith('#/checkin/')) {
-       // Simple wrapper for unauthenticated access to checkin
+    const hash = window.location.hash;
+    if (hash.startsWith('#/checkin/') || hash.startsWith('#/register/')) {
        return (
          <Router>
            <Routes>
               <Route path="/checkin/:eventId" element={<CheckInPage />} />
+              <Route path="/register/:eventId" element={<GuestRegistration />} />
               <Route path="*" element={<LoginScreen />} />
            </Routes>
          </Router>
@@ -250,12 +252,14 @@ const AppContent: React.FC = () => {
     <Router>
       <Routes>
         <Route path="/checkin/:eventId" element={<CheckInPage />} />
+        <Route path="/register/:eventId" element={<GuestRegistration />} />
         {/* Main Routes wrapped in Layout */}
         <Route path="*" element={
           <Layout>
             <Routes>
               <Route path="/" element={user.role === 'volunteer' ? <Navigate to="/events" replace /> : <Dashboard />} />
               <Route path="/members" element={<Members />} />
+              <Route path="/guests" element={<Guests />} />
               <Route path="/events" element={<Events />} />
               <Route path="/kiosk" element={<Kiosk />} />
               <Route path="/reports" element={<Reports />} />

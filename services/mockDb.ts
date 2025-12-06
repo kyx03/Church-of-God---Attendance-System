@@ -1,5 +1,5 @@
 
-import { Member, Event, AttendanceRecord, User, AppSettings } from '../types';
+import { Member, Event, AttendanceRecord, User, AppSettings, Guest } from '../types';
 import { MOCK_USERS, MOCK_MEMBERS, MOCK_EVENTS, MOCK_ATTENDANCE } from '../constants';
 
 const API_URL = 'http://localhost:5000/api';
@@ -8,6 +8,7 @@ const API_URL = 'http://localhost:5000/api';
 let localMembers = [...MOCK_MEMBERS];
 let localEvents = [...MOCK_EVENTS];
 let localAttendance = [...MOCK_ATTENDANCE];
+let localGuests: Guest[] = []; // New separate table for guests
 let localSettings: AppSettings = { slogan: 'Puelay' };
 
 const fetchJson = async (endpoint: string, options: RequestInit = {}) => {
@@ -83,6 +84,22 @@ const handleMockFallback = async (endpoint: string, options: RequestInit) => {
         }
     }
 
+    // Guests (New)
+    if (endpoint === '/guests') {
+        if (method === 'GET') return [...localGuests];
+        if (method === 'POST') {
+            localGuests.push(body);
+            return body;
+        }
+    }
+    if (endpoint.startsWith('/guests/')) {
+        const id = endpoint.split('/').pop();
+        if (method === 'DELETE') {
+            localGuests = localGuests.filter(g => g.id !== id);
+            return { success: true };
+        }
+    }
+
     // Attendance
     if (endpoint === '/attendance') {
         if (method === 'GET') return [...localAttendance];
@@ -144,6 +161,11 @@ export const db = {
   addEvent: (event: Event) => fetchJson('/events', { method: 'POST', body: JSON.stringify(event) }),
   updateEvent: (id: string, updates: Partial<Event>) => fetchJson(`/events/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
   deleteEvent: (id: string) => fetchJson(`/events/${id}`, { method: 'DELETE' }),
+
+  // Guest Operations
+  getGuests: () => fetchJson('/guests'),
+  addGuest: (guest: Guest) => fetchJson('/guests', { method: 'POST', body: JSON.stringify(guest) }),
+  deleteGuest: (id: string) => fetchJson(`/guests/${id}`, { method: 'DELETE' }),
 
   getAttendance: () => fetchJson('/attendance'),
   markAttendance: (record: AttendanceRecord) => fetchJson('/attendance', { method: 'POST', body: JSON.stringify(record) }),

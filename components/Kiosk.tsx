@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Maximize, Camera, QrCode, CheckCircle, AlertCircle, LogOut, Calendar, PlayCircle, Clock, X, ChevronLeft, ChevronRight, Search, Keyboard } from 'lucide-react';
 import { db } from '../services/mockDb';
-import { Event } from '../types';
+import { Event, Member, Guest } from '../types';
 
 const ITEMS_PER_PAGE = 9;
 
@@ -147,14 +147,16 @@ const Kiosk: React.FC = () => {
     }
   };
 
-  const processAttendance = useCallback(async (memberId: string) => {
+  const processAttendance = useCallback(async (scannedId: string) => {
     if (!activeEvent) return;
 
     try {
-      const members = await db.getMembers();
-      const member = members.find(m => m.id === memberId);
+      const [members, guests] = await Promise.all([db.getMembers(), db.getGuests()]);
       
+      // Check if Member
+      const member = members.find(m => m.id === scannedId);
       if (member) {
+        // Record Attendance
         await db.markAttendance({
           id: `att${Date.now()}`,
           eventId: activeEvent.id,
@@ -162,11 +164,53 @@ const Kiosk: React.FC = () => {
           timestamp: new Date().toISOString(),
           method: 'qr'
         });
-        setScanResult({ status: 'success', message: `Welcome, ${member.firstName}!` });
-      } else {
-        setScanResult({ status: 'error', message: 'Member ID not found.' });
+
+        // If Public Event, also add to Guests list if not present
+        if (activeEvent.isPublic) {
+            const alreadyGuest = guests.some(g => g.eventId === activeEvent.id && (
+                g.firstName.toLowerCase() === member.firstName.toLowerCase() && 
+                g.lastName.toLowerCase() === member.lastName.toLowerCase()
+            ));
+
+            if (!alreadyGuest) {
+                await db.addGuest({
+                    id: `g-mem-${Date.now()}`, // Distinct ID to avoid PK conflict if storing differently, though guests usually independent
+                    eventId: activeEvent.id,
+                    firstName: member.firstName,
+                    lastName: member.lastName,
+                    email: member.email,
+                    phone: member.phone,
+                    homeChurch: 'Local Member',
+                    registrationDate: new Date().toISOString()
+                });
+            }
+        }
+
+        setScanResult({ status: 'success', message: `Welcome, ${member.firstName}! (Member)` });
+        setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
+        return;
+      } 
+      
+      // Check if Guest
+      const guest = guests.find(g => g.id === scannedId && g.eventId === activeEvent.id);
+      if (guest) {
+          // Record Attendance for Guest
+          // Note: AttendanceRecord expects memberId. We reuse the field for guestId for tracking purposes.
+          await db.markAttendance({
+            id: `att-gst-${Date.now()}`,
+            eventId: activeEvent.id,
+            memberId: guest.id, // Using Guest ID here
+            timestamp: new Date().toISOString(),
+            method: 'qr'
+          });
+          setScanResult({ status: 'success', message: `Welcome, ${guest.firstName}! (Guest)` });
+          setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
+          return;
       }
+
+      setScanResult({ status: 'error', message: 'ID not found.' });
     } catch (e) {
+      console.error(e);
       setScanResult({ status: 'error', message: 'System error.' });
     }
 
@@ -174,14 +218,17 @@ const Kiosk: React.FC = () => {
   }, [activeEvent]);
 
   const simulateScan = () => {
-    // For demo, assume we have members with these IDs
+    // Simulate finding a member for testing
     processAttendance('AB12C3'); 
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if(manualId) {
-        processAttendance(manualId.toUpperCase());
+        // Try uppercase for member IDs, but keep as is for Guest IDs (usually lowercase/mixed)
+        // Heuristic: If starts with 'g-', assume guest ID, otherwise member ID
+        const idToProcess = manualId.toLowerCase().startsWith('g-') ? manualId : manualId.toUpperCase();
+        processAttendance(idToProcess);
         setManualId('');
     }
   };
@@ -429,7 +476,7 @@ const Kiosk: React.FC = () => {
                 type="text" 
                 value={manualId}
                 onChange={e => setManualId(e.target.value)}
-                placeholder="Or enter Member ID manually..." 
+                placeholder="Or enter ID manually..." 
                 className="w-full bg-slate-800/80 backdrop-blur-sm border border-white/10 text-white placeholder-slate-400 rounded-xl py-3 md:py-3.5 px-4 md:px-6 focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono tracking-wider shadow-xl transition-all focus:bg-slate-800 text-sm md:text-base"
             />
             <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-slate-700/80 rounded-lg text-slate-300 hover:text-white hover:bg-blue-600 transition-colors">

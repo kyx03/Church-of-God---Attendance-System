@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { AttendanceRecord, Member, Event } from "../types";
 
@@ -44,5 +45,38 @@ export const generateMinistryInsight = async (
   } catch (error) {
     console.error("Gemini Error:", error);
     return "Error connecting to AI service.";
+  }
+};
+
+export const generateEventDescription = async (
+  eventName: string,
+  eventType: string,
+  eventDate: string,
+  eventLocation: string
+): Promise<string> => {
+  const ai = initGenAI();
+  if (!ai) return "";
+
+  const prompt = `
+    Write a short, inviting, and warm description (max 2 sentences) for a church event.
+    
+    Event Details:
+    Name: ${eventName}
+    Type: ${eventType}
+    Date: ${eventDate}
+    Location: ${eventLocation}
+
+    The tone should be welcoming to both members and new guests.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return response.text || "";
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    return "";
   }
 };

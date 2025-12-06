@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, QrCode, LogOut, BarChart3, Settings, X, Save, Edit2, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, QrCode, LogOut, BarChart3, Settings, X, Save, Edit2, Menu, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/mockDb';
 
@@ -62,6 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
     { path: '/members', label: 'Members', icon: Users, roles: ['admin'] },
+    { path: '/guests', label: 'Guests', icon: UserPlus, roles: ['admin', 'volunteer'] },
     { path: '/events', label: 'Events', icon: Calendar, roles: ['admin', 'volunteer'] },
     { path: '/kiosk', label: 'Kiosk Mode', icon: QrCode, roles: ['admin', 'volunteer'] },
     { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['admin'] },

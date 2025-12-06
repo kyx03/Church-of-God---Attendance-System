@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check, Edit2, PlayCircle, ChevronLeft, Search } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, CheckCircle2, CalendarClock, MailWarning, Trash2, XCircle, QrCode, X, ChevronDown, Users, AlertTriangle, MessageSquare, Mail, Smartphone, Send, ArrowLeft, Filter, MoreHorizontal, ChevronRight, Check, Edit2, PlayCircle, ChevronLeft, Search, Globe, Share2, Sparkles, Loader2, Link, CheckSquare } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Event, Member, AttendanceRecord } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { generateEventDescription } from '../services/geminiService';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -13,11 +14,13 @@ const Events: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [slogan, setSlogan] = useState('Puelay');
   
   // Event Form State
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newEvent, setNewEvent] = useState<Partial<Event>>({ type: 'service' });
+  const [newEvent, setNewEvent] = useState<Partial<Event>>({ type: 'service', isPublic: false });
   const [isCustomType, setIsCustomType] = useState(false);
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
 
   // UI State
   const [activeStatusId, setActiveStatusId] = useState<string | null>(null);
@@ -26,6 +29,7 @@ const Events: React.FC = () => {
 
   // Modal States
   const [checkInQrEvent, setCheckInQrEvent] = useState<Event | null>(null);
+  const [guestQrEvent, setGuestQrEvent] = useState<Event | null>(null); // New state for Guest QR
   const [viewAttendeesEvent, setViewAttendeesEvent] = useState<Event | null>(null);
   const [deleteEventTarget, setDeleteEventTarget] = useState<Event | null>(null);
 
@@ -60,6 +64,7 @@ const Events: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    db.getSettings().then(s => setSlogan(s.slogan));
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('.status-dropdown-container')) {
@@ -101,7 +106,7 @@ const Events: React.FC = () => {
 
   const openAddModal = () => {
     setEditingId(null);
-    setNewEvent({ type: 'service' });
+    setNewEvent({ type: 'service', isPublic: false });
     setIsCustomType(false);
     setShowForm(true);
   };
@@ -116,6 +121,12 @@ const Events: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.name || !newEvent.date) return;
+
+    // Validate date for new events
+    if (!editingId && new Date(newEvent.date) < new Date()) {
+        alert("Cannot schedule events in the past.");
+        return;
+    }
     
     if (editingId) {
         await db.updateEvent(editingId, {
@@ -123,6 +134,8 @@ const Events: React.FC = () => {
             date: newEvent.date,
             location: newEvent.location || 'Main Sanctuary',
             type: newEvent.type as any,
+            isPublic: newEvent.isPublic,
+            description: newEvent.description
         });
     } else {
         await db.addEvent({
@@ -131,7 +144,9 @@ const Events: React.FC = () => {
             date: newEvent.date,
             location: newEvent.location || 'Main Sanctuary', 
             type: newEvent.type as any,
-            status: 'upcoming'
+            status: 'upcoming',
+            isPublic: newEvent.isPublic,
+            description: newEvent.description
         });
     }
     
@@ -140,6 +155,21 @@ const Events: React.FC = () => {
     setNewEvent({ type: 'service' });
     setEditingId(null);
     setIsCustomType(false);
+  };
+
+  const handleSuggestDescription = async () => {
+    if (!newEvent.name || !newEvent.type || !newEvent.date) return;
+    setLoadingSuggestion(true);
+    const desc = await generateEventDescription(
+      newEvent.name, 
+      newEvent.type, 
+      new Date(newEvent.date).toLocaleDateString() + ' ' + new Date(newEvent.date).toLocaleTimeString(),
+      newEvent.location || 'Main Sanctuary'
+    );
+    if (desc) {
+      setNewEvent(prev => ({ ...prev, description: desc }));
+    }
+    setLoadingSuggestion(false);
   };
 
   const handleDelete = async () => {
@@ -166,6 +196,91 @@ const Events: React.FC = () => {
       await db.updateEvent(eventId, updates);
       setEvents(events.map(e => e.id === eventId ? { ...e, ...updates } : e));
       setActiveStatusId(null);
+  };
+
+  const handlePrintFlyer = (event: Event) => {
+    const qrLink = getQrLink(event.id, 'register');
+    const fullLink = window.location.origin + window.location.pathname + '#/' + 'register/' + event.id;
+    const win = window.open('', '_blank');
+    if (!win) return;
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>${event.name} - Flyer</title>
+          <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+          <style>
+            body { font-family: 'Lato', sans-serif; text-align: center; padding: 0; margin: 0; background-color: #f8fafc; }
+            .page { width: 8.5in; height: 11in; margin: 20px auto; background: white; padding: 60px; box-sizing: border-box; border: 1px solid #e2e8f0; position: relative; overflow: hidden; }
+            .decorative-border { position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px; border: 2px solid #1e3a8a; border-radius: 4px; pointer-events: none; }
+            .inner-border { position: absolute; top: 26px; left: 26px; right: 26px; bottom: 26px; border: 1px solid #93c5fd; border-radius: 2px; pointer-events: none; }
+            
+            .header { margin-bottom: 40px; }
+            .logo { width: 80px; height: 80px; object-fit: contain; margin-bottom: 15px; }
+            .church-name { font-family: 'Cinzel', serif; font-size: 32px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+            .slogan { font-family: 'Lato', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 3px; color: #64748b; margin-top: 5px; }
+            
+            .content { margin: 40px 0; }
+            .tag { display: inline-block; background: #1e3a8a; color: white; padding: 8px 24px; font-weight: bold; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 30px; border-radius: 2px; }
+            .event-name { font-family: 'Cinzel', serif; font-size: 48px; font-weight: 700; color: #0f172a; margin-bottom: 20px; line-height: 1.1; }
+            .description { font-size: 18px; color: #475569; max-width: 80%; margin: 0 auto 40px auto; font-style: italic; line-height: 1.6; }
+            
+            .details-box { display: flex; justify-content: center; gap: 40px; margin-bottom: 40px; }
+            .detail-item { text-align: center; }
+            .detail-label { font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: bold; margin-bottom: 5px; }
+            .detail-value { font-size: 18px; font-weight: 700; color: #1e3a8a; }
+            
+            .qr-section { margin-top: 20px; background: #f8fafc; padding: 30px; display: inline-block; border-radius: 10px; border: 1px dashed #cbd5e1; }
+            .qr-img { width: 200px; height: 200px; mix-blend-mode: multiply; }
+            .cta { font-weight: bold; color: #1e3a8a; margin-top: 15px; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+            .link-text { margin-top: 10px; font-size: 12px; color: #64748b; }
+            
+            @media print {
+              body { background: white; }
+              .page { margin: 0; border: none; box-shadow: none; width: 100%; height: 100%; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="decorative-border"></div>
+            <div class="inner-border"></div>
+            
+            <div class="header">
+              <img src="/logo.png" class="logo" onerror="this.style.display='none'" />
+              <h1 class="church-name">Church of God</h1>
+              <div class="slogan">${slogan}</div>
+            </div>
+            
+            <div class="content">
+              <div class="tag">You Are Invited</div>
+              <h2 class="event-name">${event.name}</h2>
+              ${event.description ? `<p class="description">"${event.description}"</p>` : ''}
+              
+              <div class="details-box">
+                <div class="detail-item">
+                  <div class="detail-label">When</div>
+                  <div class="detail-value">${new Date(event.date).toLocaleDateString()}</div>
+                  <div class="detail-value" style="font-size: 16px; margin-top: 2px;">${new Date(event.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                </div>
+                <div class="detail-item">
+                  <div class="detail-label">Where</div>
+                  <div class="detail-value">${event.location || 'Main Sanctuary'}</div>
+                </div>
+              </div>
+              
+              <div class="qr-section">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${qrLink}" class="qr-img" />
+                <div class="cta">Scan to Register</div>
+                <div class="link-text">Or visit: ${fullLink}</div>
+              </div>
+            </div>
+          </div>
+          <script>window.onload = () => window.print();</script>
+        </body>
+      </html>
+    `);
+    win.document.close();
   };
 
   const openNotifyModal = (event: Event) => {
@@ -297,10 +412,11 @@ const Events: React.FC = () => {
       }).filter(item => item.member !== undefined);
   };
 
-  const getQrLink = (eventId: string) => {
+  const getQrLink = (eventId: string, type: 'checkin' | 'register') => {
     const baseUrl = window.location.origin + window.location.pathname; 
-    const checkInUrl = `${baseUrl}#/checkin/${eventId}`;
-    return encodeURIComponent(checkInUrl);
+    const path = type === 'checkin' ? `checkin/${eventId}` : `register/${eventId}`;
+    const url = `${baseUrl}#/${path}`;
+    return encodeURIComponent(url);
   };
 
   return (
@@ -349,67 +465,7 @@ const Events: React.FC = () => {
       </div>
 
       <div className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 space-y-8">
-        {showForm && canEdit && (
-            <div className="bg-white rounded-xl shadow-lg border border-blue-100 overflow-hidden animate-in slide-in-from-top-4">
-            <div className="bg-blue-900 px-6 py-4 flex justify-between items-center text-white">
-                <h3 className="font-bold flex items-center gap-2 text-lg"><Calendar className="w-5 h-5" /> {editingId ? 'Edit Event' : 'Schedule New Event'}</h3>
-                <button onClick={() => setShowForm(false)} className="text-blue-200 hover:text-white bg-blue-800 hover:bg-blue-700 p-1 rounded-full transition-colors"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Title of Event <span className="text-red-500">*</span></label>
-                            <input required type="text" placeholder="e.g. Sunday Morning Worship" className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.name || ''} onChange={e => setNewEvent({...newEvent, name: e.target.value})} />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Event Type</label>
-                            {isCustomType ? (
-                                <div className="flex gap-2">
-                                    <input autoFocus type="text" placeholder="Enter custom type..." className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 shadow-sm" value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value as any})} />
-                                    <button type="button" onClick={() => setIsCustomType(false)} className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"><X className="w-4 h-4" /></button>
-                                </div>
-                            ) : (
-                                <div className="relative">
-                                    <select className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white text-slate-900 shadow-sm appearance-none" value={newEvent.type} onChange={e => {
-                                            if (e.target.value === 'custom') { setIsCustomType(true); setNewEvent({...newEvent, type: '' as any}); } else { setNewEvent({...newEvent, type: e.target.value as any}); }
-                                        }}>
-                                        <option value="service">Service</option>
-                                        <option value="youth">Youth</option>
-                                        <option value="outreach">Outreach</option>
-                                        <option value="meeting">Meeting</option>
-                                        <option value="custom">Other / Custom...</option>
-                                    </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Date & Time <span className="text-red-500">*</span></label>
-                            <div className="relative group">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 pointer-events-none z-10"><Calendar className="w-5 h-5" /></div>
-                                <input required type="datetime-local" className="w-full pl-14 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-slate-900 shadow-sm relative z-0 font-medium" value={newEvent.date || ''} onChange={e => setNewEvent({...newEvent, date: e.target.value})} style={{ colorScheme: 'light' }} />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Location <span className="text-blue-500 text-xs font-normal">(Optional)</span></label>
-                            <div className="relative">
-                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                <input type="text" placeholder="e.g. Main Sanctuary" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.location || ''} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
-                    <button type="button" onClick={() => setShowForm(false)} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-                    <button type="submit" className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors shadow-lg shadow-blue-900/20 flex items-center gap-2"><CheckCircle2 className="w-5 h-5" />{editingId ? 'Save Changes' : 'Create Event'}</button>
-                </div>
-            </form>
-            </div>
-        )}
-
+        
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedEvents.length === 0 ? (
@@ -463,8 +519,13 @@ const Events: React.FC = () => {
                 </div>
                 
                 <h3 className="text-xl font-bold mb-2 text-slate-900 line-clamp-2">{event.name}</h3>
-                <div className="mb-4">
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
                     <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider bg-slate-100/80 px-2 py-1 rounded border border-slate-200">{event.type}</span>
+                    {event.isPublic && (
+                        <span className="text-[10px] font-bold uppercase text-blue-600 tracking-wider bg-blue-50 px-2 py-1 rounded border border-blue-100 flex items-center gap-1">
+                            <Globe className="w-3 h-3" /> Public
+                        </span>
+                    )}
                 </div>
                 
                 {event.status === 'cancelled' && event.cancellationReason && (
@@ -503,7 +564,19 @@ const Events: React.FC = () => {
 
                 <div className="mt-4 space-y-2">
                     {(!isPast && event.status !== 'cancelled') && (
-                        <button onClick={() => setCheckInQrEvent(event)} className="w-full py-2.5 px-3 text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 font-bold hover:shadow-lg hover:-translate-y-0.5"><QrCode className="w-4 h-4" /> Self Check-in QR</button>
+                        <div className="grid grid-cols-2 gap-2">
+                            {event.isPublic ? (
+                                <>
+                                    <button onClick={() => setGuestQrEvent(event)} className="col-span-2 py-2.5 px-3 text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 font-bold hover:shadow-lg hover:-translate-y-0.5">
+                                        <QrCode className="w-4 h-4" /> Guest QR
+                                    </button>
+                                </>
+                            ) : (
+                                <button onClick={() => setCheckInQrEvent(event)} className="col-span-2 py-2.5 px-3 text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 font-bold hover:shadow-lg hover:-translate-y-0.5">
+                                    <QrCode className="w-4 h-4" /> Member QR
+                                </button>
+                            )}
+                        </div>
                     )}
                     {(isPast && canEdit && event.status !== 'cancelled') && (
                     <button onClick={() => openNotifyModal(event)} className="w-full py-2.5 px-3 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center justify-center gap-2 transition-colors border border-amber-200 font-bold"><MailWarning className="w-4 h-4" /> Notify Absentees</button>
@@ -514,7 +587,7 @@ const Events: React.FC = () => {
             })}
         </div>
         
-        {/* ... Rest of existing pagination and modals ... */}
+        {/* Pagination */}
         {sortedEvents.length > ITEMS_PER_PAGE && (
             <div className="flex justify-center items-center mt-8 gap-4">
                 <button 
@@ -536,18 +609,153 @@ const Events: React.FC = () => {
         )}
       </div>
 
-       {/* ... Existing Modals: QR, Attendees, Delete, Notify (no changes needed) ... */}
+       {/* Add/Edit Modal (Replaces Inline Form) */}
+       {showForm && canEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full relative overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="bg-blue-900 px-6 py-4 flex justify-between items-center text-white">
+                    <h3 className="font-bold flex items-center gap-2 text-lg"><Calendar className="w-5 h-5" /> {editingId ? 'Edit Event' : 'Schedule New Event'}</h3>
+                    <button onClick={() => setShowForm(false)} className="text-blue-200 hover:text-white bg-blue-800 hover:bg-blue-700 p-1 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 md:p-8 max-h-[80vh] overflow-y-auto">
+                    <div className="grid grid-cols-1 gap-6">
+                        <div className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Event Title <span className="text-red-500">*</span></label>
+                                <input required type="text" placeholder="e.g. Sunday Morning Worship" className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.name || ''} onChange={e => setNewEvent({...newEvent, name: e.target.value})} />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Date & Time <span className="text-red-500">*</span></label>
+                                    <div className="relative group">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 pointer-events-none z-10"><Calendar className="w-5 h-5" /></div>
+                                        <input 
+                                            required 
+                                            type="datetime-local" 
+                                            // Ensure value is formatted correctly for datetime-local (YYYY-MM-DDTHH:mm)
+                                            value={newEvent.date ? new Date(newEvent.date).toISOString().slice(0, 16) : ''}
+                                            // Simple validation to disable past dates in picker for new events
+                                            min={!editingId ? new Date().toISOString().slice(0, 16) : undefined}
+                                            className="w-full pl-14 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-slate-900 shadow-sm relative z-0 font-medium" 
+                                            onChange={e => setNewEvent({...newEvent, date: e.target.value})} 
+                                            style={{ colorScheme: 'light' }} 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Event Type</label>
+                                    {isCustomType ? (
+                                        <div className="flex gap-2">
+                                            <input autoFocus type="text" placeholder="Enter custom type..." className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 shadow-sm" value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value as any})} />
+                                            <button type="button" onClick={() => setIsCustomType(false)} className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600"><X className="w-4 h-4" /></button>
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <select className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white text-slate-900 shadow-sm appearance-none" value={newEvent.type} onChange={e => {
+                                                    if (e.target.value === 'custom') { setIsCustomType(true); setNewEvent({...newEvent, type: '' as any}); } else { setNewEvent({...newEvent, type: e.target.value as any}); }
+                                                }}>
+                                                <option value="service">Service</option>
+                                                <option value="youth">Youth</option>
+                                                <option value="outreach">Outreach</option>
+                                                <option value="meeting">Meeting</option>
+                                                <option value="custom">Other / Custom...</option>
+                                            </select>
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">Location</label>
+                                <div className="relative">
+                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                    <input type="text" placeholder="e.g. Main Sanctuary" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 shadow-sm" value={newEvent.location || ''} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-sm font-bold text-slate-700">Description <span className="text-slate-400 font-normal text-xs">(Optional)</span></label>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleSuggestDescription}
+                                        disabled={!newEvent.name || !newEvent.type || !newEvent.date || loadingSuggestion}
+                                        className="text-xs flex items-center gap-1 text-purple-600 hover:text-purple-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {loadingSuggestion ? <Loader2 className="w-3 h-3 animate-spin"/> : <Sparkles className="w-3 h-3" />}
+                                        Auto-Generate
+                                    </button>
+                                </div>
+                                <textarea 
+                                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white text-slate-900 shadow-sm resize-none h-24 text-sm" 
+                                    placeholder="Add details about the event..."
+                                    value={newEvent.description || ''}
+                                    onChange={e => setNewEvent({...newEvent, description: e.target.value})}
+                                />
+                            </div>
+
+                            <div className="pt-2">
+                                <label className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all ${newEvent.isPublic ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                                    <div className="relative flex items-center mt-0.5">
+                                        <input type="checkbox" className="sr-only peer" checked={newEvent.isPublic || false} onChange={e => setNewEvent({...newEvent, isPublic: e.target.checked})} />
+                                        <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className={`font-bold ${newEvent.isPublic ? 'text-blue-800' : 'text-slate-700'}`}>Public Event (Hosted by Church)</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">Enabling this creates a public registration page for guests. Use this for special events, conferences, or open services.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
+                        <button type="button" onClick={() => setShowForm(false)} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                        <button type="submit" className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors shadow-lg shadow-blue-900/20 flex items-center gap-2"><CheckCircle2 className="w-5 h-5" />{editingId ? 'Save Changes' : 'Create Event'}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+       )}
+
+       {/* Guest QR Modal */}
+       {guestQrEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button onClick={() => setGuestQrEvent(null)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
+                  <Globe className="w-3 h-3" /> Public Registration
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 leading-tight">{guestQrEvent.name}</h3>
+              <p className="text-sm text-slate-500">Share this QR code for guests to register online.</p>
+              <div className="p-4 bg-white border-2 border-blue-100 rounded-xl inline-block shadow-inner ring-4 ring-blue-50">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${getQrLink(guestQrEvent.id, 'register')}`} alt="Guest Registration QR" className="w-56 h-56 mix-blend-multiply" />
+              </div>
+              <div className="text-xs text-slate-400 bg-slate-50 p-2 rounded break-all font-mono">
+                  <a href={decodeURIComponent(getQrLink(guestQrEvent.id, 'register')).split('#')[1] ? `${window.location.origin}${window.location.pathname}#${decodeURIComponent(getQrLink(guestQrEvent.id, 'register')).split('#')[1]}` : '#'} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline hover:text-blue-700">
+                    Open Registration Page
+                  </a>
+              </div>
+              <button className="w-full py-2.5 rounded-lg bg-blue-900 text-white font-medium hover:bg-blue-800 transition-colors" onClick={() => handlePrintFlyer(guestQrEvent)}>Print QR Flyer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+       {/* Existing Member QR Modal */}
        {checkInQrEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
             <button onClick={() => setCheckInQrEvent(null)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
             <div className="text-center space-y-4">
-              <h3 className="text-xl font-bold text-slate-900">Self Check-In</h3>
-              <p className="text-sm text-slate-500">Scan this code to open the <br/><strong className="text-slate-800">Check-In Page</strong> for <span className="font-semibold text-slate-900">{checkInQrEvent.name}</span></p>
+              <h3 className="text-xl font-bold text-slate-900">Member Check-In</h3>
+              <p className="text-sm text-slate-500">Scan this code to self-check-in existing members.</p>
               <div className="p-4 bg-white border-2 border-slate-100 rounded-xl inline-block shadow-inner">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${getQrLink(checkInQrEvent.id)}`} alt="Event Check-in QR" className="w-56 h-56" />
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${getQrLink(checkInQrEvent.id, 'checkin')}`} alt="Event Check-in QR" className="w-56 h-56" />
               </div>
-              <p className="text-xs text-slate-400">Attendees can scan to self-register.</p>
+              <p className="text-xs text-slate-400">For existing member database only.</p>
               <button className="w-full py-2.5 rounded-lg bg-blue-900 text-white font-medium hover:bg-blue-800 transition-colors" onClick={() => window.print()}>Print Event Code</button>
             </div>
           </div>
@@ -614,6 +822,7 @@ const Events: React.FC = () => {
               <button onClick={() => setNotifyState(prev => ({ ...prev, isOpen: false }))}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
             </div>
             <div className="p-6">
+              {/* Notification Steps (Range, Method, Compose) - No changes to logic here, just re-rendering */}
               {notifyState.step === 'range' && (
                   <div className="space-y-4">
                       <p className="text-slate-600 text-sm">Select criteria to identify members who have <strong>not attended any matching events</strong>.</p>
