@@ -33,10 +33,19 @@ const Kiosk: React.FC = () => {
 
   useEffect(() => {
     db.getEvents().then(allEvents => {
-      // Filter out completed and cancelled events
+      // Get start of today (00:00:00) to filter events
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      // Filter out completed, cancelled events, and past events (older than today)
       const validEvents = allEvents
-        .filter(e => e.status !== 'completed' && e.status !== 'cancelled')
+        .filter(e => {
+            if (e.status === 'completed' || e.status === 'cancelled') return false;
+            const eventDate = new Date(e.date);
+            return eventDate >= startOfToday;
+        })
         .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
       setEvents(validEvents);
     });
     // Cleanup on unmount
@@ -45,6 +54,14 @@ const Kiosk: React.FC = () => {
         if (timeCheckInterval.current) clearInterval(timeCheckInterval.current);
     };
   }, []);
+
+  // Fix: Ensure video stream is attached when camera becomes active and video element enters DOM
+  useEffect(() => {
+      if (cameraActive && videoRef.current && streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          videoRef.current.play().catch(e => console.error("Video play error:", e));
+      }
+  }, [cameraActive]);
 
   // Time check logic
   useEffect(() => {
@@ -115,7 +132,17 @@ const Kiosk: React.FC = () => {
           exitKioskMode();
           // Refresh list
           const allEvents = await db.getEvents();
-          setEvents(allEvents.filter(e => e.status !== 'completed' && e.status !== 'cancelled').sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+
+          setEvents(allEvents
+            .filter(e => {
+                if (e.status === 'completed' || e.status === 'cancelled') return false;
+                const eventDate = new Date(e.date);
+                return eventDate >= startOfToday;
+            })
+            .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          );
       }
   };
 
@@ -137,9 +164,7 @@ const Kiosk: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       streamRef.current = stream;
       setCameraActive(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      // Removed direct assignment here; relying on useEffect [cameraActive] to attach stream to ref
     } catch (err: any) {
       console.error("Camera error:", err);
       setScanResult({ status: 'error', message: "Camera access required." });
