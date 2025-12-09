@@ -9,7 +9,15 @@ let localMembers = [...MOCK_MEMBERS];
 let localEvents = [...MOCK_EVENTS];
 let localAttendance = [...MOCK_ATTENDANCE];
 let localGuests: Guest[] = []; // New separate table for guests
-let localSettings: AppSettings = { slogan: 'Puelay' };
+
+/* START OF SETTINGS CHANGES */
+let localSettings: AppSettings = { 
+  churchName: 'Church of God',
+  churchBranch: 'Puelay',
+  churchLogo: '/logo.png',
+  theme: 'light' 
+};
+/* END OF SETTINGS CHANGES */
 
 const fetchJson = async (endpoint: string, options: RequestInit = {}) => {
   try {

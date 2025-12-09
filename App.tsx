@@ -13,6 +13,7 @@ import GuestRegistration from './components/GuestRegistration';
 import { User, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { db } from './services/mockDb';
+import { AppSettings } from './types';
 
 const LoginScreen: React.FC = () => {
   const { login } = useAuth();
@@ -20,11 +21,35 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [slogan, setSlogan] = useState('Puelay');
+  
+  /* START OF SETTINGS CHANGES */
+  const [appSettings, setAppSettings] = useState<AppSettings>({
+    churchName: 'Church of God',
+    churchBranch: 'Puelay',
+    churchLogo: '/logo.png',
+    theme: 'light'
+  });
 
   useEffect(() => {
-    db.getSettings().then(s => setSlogan(s.slogan));
+    db.getSettings().then(s => {
+        const merged = { 
+            churchName: s.churchName || 'Church of God',
+            churchBranch: s.churchBranch || s.slogan || 'Puelay',
+            churchLogo: s.churchLogo || '/logo.png',
+            theme: s.theme || 'light',
+            slogan: s.slogan 
+        };
+        setAppSettings(merged);
+        
+        // Apply theme to login screen immediately
+        if (merged.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    });
   }, []);
+  /* END OF SETTINGS CHANGES */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +71,7 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-slate-900 dark:bg-slate-950 flex items-center justify-center p-4 overflow-hidden relative transition-colors duration-200">
       {/* Dynamic Animated Background */}
       <div className="absolute inset-0 overflow-hidden z-0">
          <div className="absolute inset-0 bg-gradient-to-br from-blue-950 via-slate-900 to-indigo-950 animate-gradient bg-[length:200%_200%]"></div>
@@ -97,16 +122,20 @@ const LoginScreen: React.FC = () => {
       <div className="bg-white/90 backdrop-blur-2xl rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative z-10 animate-in fade-in zoom-in duration-500 slide-in-from-bottom-8 border border-white/40 ring-1 ring-white/50 transform scale-[0.85] md:scale-100 origin-center">
         <div className="text-center mb-6 md:mb-8">
           <div className="inline-flex p-3 bg-white rounded-2xl mb-4 shadow-xl shadow-blue-900/10 transform hover:scale-105 transition-transform duration-500 ring-1 ring-blue-100/50">
-             <img src="/logo.png" alt="Church Logo" className="w-20 h-20 md:w-24 md:h-24 object-contain" 
+             {/* START OF SETTINGS CHANGES - Dynamic Logo */}
+             <img src={appSettings.churchLogo} alt="Church Logo" className="w-20 h-20 md:w-24 md:h-24 object-contain" 
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
                     (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="w-20 h-20 flex items-center justify-center text-blue-900 font-bold">LOGO</div>';
                   }}
              />
+             {/* END OF SETTINGS CHANGES */}
           </div>
+          {/* START OF SETTINGS CHANGES - Dynamic Name and Branch */}
           <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight mb-1 leading-tight">
-            Church of God <span className="text-blue-600 font-bold block text-sm md:text-base mt-0.5">{slogan}</span>
+            {appSettings.churchName} <span className="text-blue-600 font-bold block text-sm md:text-base mt-0.5">{appSettings.churchBranch}</span>
           </h1>
+          {/* END OF SETTINGS CHANGES */}
           <p className="text-slate-400 font-bold tracking-[0.2em] uppercase text-[9px] md:text-[10px]">Attendance Portal</p>
         </div>
         

@@ -57,6 +57,13 @@ export interface AnalyticsSummary {
   growthRate: number;
 }
 
+/* START OF SETTINGS CHANGES */
 export interface AppSettings {
-  slogan: string;
+  churchName: string;
+  churchBranch: string; // Formerly slogan
+  churchLogo: string;
+  theme: 'light' | 'dark';
+  // Keep legacy for compatibility during migration if needed, though we will replace usage
+  slogan?: string; 
 }
+/* END OF SETTINGS CHANGES */
